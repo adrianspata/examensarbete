@@ -1,0 +1,8 @@
+packages:
+  - backend
+  - frontend-widget
+  - admin
+  - test-storefront
+
+onlyBuiltDependencies:
+  - esbuild
