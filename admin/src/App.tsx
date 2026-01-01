@@ -1,45 +1,74 @@
 import { useEffect, useState } from "react";
-import { fetchHealth, type HealthResponse } from "./api";
+import {
+  fetchHealth,
+  fetchProducts,
+  type HealthResponse,
+  type ProductSummary,
+} from "./api";
+import { ProductsTable } from "./components/ProductsTable";
 
 type LoadState = "idle" | "loading" | "success" | "error";
 
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [state, setState] = useState<LoadState>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [healthState, setHealthState] = useState<LoadState>("idle");
+  const [healthError, setHealthError] = useState<string | null>(null);
+
+  const [products, setProducts] = useState<ProductSummary[]>([]);
+  const [productsState, setProductsState] = useState<LoadState>("idle");
+  const [productsError, setProductsError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
 
-    async function load() {
-      setState("loading");
-      setError(null);
+    async function loadHealth() {
+      setHealthState("loading");
+      setHealthError(null);
 
       try {
         const data = await fetchHealth();
         if (!active) return;
         setHealth(data);
-        setState("success");
+        setHealthState("success");
       } catch (err) {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "Unknown error");
-        setState("error");
+        setHealthError(err instanceof Error ? err.message : "Unknown error");
+        setHealthState("error");
       }
     }
 
-    load();
+    loadHealth();
 
     return () => {
       active = false;
     };
   }, []);
 
+  useEffect(() => {
+    reloadProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function reloadProducts() {
+    setProductsState("loading");
+    setProductsError(null);
+
+    try {
+      const data = await fetchProducts();
+      setProducts(data);
+      setProductsState("success");
+    } catch (err) {
+      setProductsError(err instanceof Error ? err.message : "Unknown error");
+      setProductsState("error");
+    }
+  }
+
   return (
     <div
       style={{
         minHeight: "100vh",
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-        background: "#0f172a",
+        background: "#020617",
         color: "#e5e7eb",
         padding: "2rem",
       }}
@@ -49,11 +78,12 @@ export default function App() {
           PPFE Admin – System Overview
         </h1>
         <p style={{ marginTop: "0.5rem", color: "#9ca3af" }}>
-          Minimal adminpanel för att övervaka backendstatus och senare events/rekommendationer.
+          Minimal adminpanel för att övervaka backendstatus och se en snapshot av
+          produktdatan.
         </p>
       </header>
 
-      <main>
+      <main style={{ maxWidth: "960px" }}>
         <section
           style={{
             padding: "1.5rem",
@@ -68,15 +98,15 @@ export default function App() {
             Backend health
           </h2>
 
-          {state === "loading" && <p>Kontrollerar backend...</p>}
+          {healthState === "loading" && <p>Kontrollerar backend...</p>}
 
-          {state === "error" && (
+          {healthState === "error" && (
             <p style={{ color: "#f97373" }}>
-              Kunde inte nå backend: {error ?? "okänt fel"}
+              Kunde inte nå backend: {healthError ?? "okänt fel"}
             </p>
           )}
 
-          {state === "success" && health && (
+          {healthState === "success" && health && (
             <div style={{ display: "grid", rowGap: "0.25rem", fontSize: "0.95rem" }}>
               <div>
                 <span style={{ color: "#9ca3af" }}>Status: </span>
@@ -96,8 +126,15 @@ export default function App() {
             </div>
           )}
 
-          {state === "idle" && <p>Ingen förfrågan skickad ännu.</p>}
+          {healthState === "idle" && <p>Ingen förfrågan skickad ännu.</p>}
         </section>
+
+        <ProductsTable
+          products={products}
+          loading={productsState === "loading"}
+          error={productsError}
+          onReload={reloadProducts}
+        />
       </main>
     </div>
   );

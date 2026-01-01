@@ -5,6 +5,15 @@ export interface HealthResponse {
   service: string;
 }
 
+export interface ProductSummary {
+  id: number;
+  sku: string;
+  name: string;
+  category: string;
+  priceCents: number;
+  imageUrl: string | null;
+}
+
 export async function fetchHealth(): Promise<HealthResponse> {
   const res = await fetch(`${API_BASE_URL}/health`);
 
@@ -13,4 +22,15 @@ export async function fetchHealth(): Promise<HealthResponse> {
   }
 
   return res.json();
+}
+
+export async function fetchProducts(): Promise<ProductSummary[]> {
+  const res = await fetch(`${API_BASE_URL}/products`);
+
+  if (!res.ok) {
+    throw new Error(`Failed to load products. Status: ${res.status}`);
+  }
+
+  const data = (await res.json()) as ProductSummary[];
+  return data;
 }
