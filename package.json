@@ -13,5 +13,13 @@
     "build": "npm run build -w backend && npm run build -w frontend-widget && npm run build -w admin && npm run build -w test-storefront",
     "db:migrate": "npm run db:migrate -w backend",
     "db:seed": "npm run db:seed -w backend"
+  },
+  "dependencies": {
+    "morgan": "^1.10.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/morgan": "^1.9.10",
+    "backend": "^0.0.0"
   }
 }

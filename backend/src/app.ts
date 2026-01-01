@@ -1,15 +1,28 @@
-import express, { Application } from "express";
+import express, { type Application } from "express";
+import morgan from "morgan";
 import cors from "cors";
+
+import eventsRoutes from "./routes/eventsRoutes.js";
+import recommendationsRoutes from "./routes/recommendationsRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import productsRoutes from "./routes/productsRoutes.js";
 
 const app: Application = express();
 
-// Grundkonfiguration
 app.use(cors());
 app.use(express.json());
+app.use(morgan("dev"));
 
-// Health check – används för att snabbt verifiera att backend lever
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", service: "ppfe-backend" });
+  res.json({
+    status: "ok",
+    service: "ppfe-backend",
+  });
 });
+
+app.use("/events", eventsRoutes);
+app.use("/recommendations", recommendationsRoutes);
+app.use("/admin", adminRoutes);
+app.use("/products", productsRoutes);
 
 export default app;
