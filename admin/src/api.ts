@@ -1,36 +1,39 @@
-const API_BASE_URL = "http://localhost:4000";
+const API_URL = "http://localhost:4000";
 
-export interface HealthResponse {
-  status: string;
-  service: string;
-}
+export type AdminEvent = {
+  id: number;
+  sessionId: string;
+  userId: string | null;
+  productId: number;
+  eventType: string;
+  createdAt: string;
+  productSku: string;
+  productName: string;
+};
 
-export interface ProductSummary {
+export type Product = {
   id: number;
   sku: string;
   name: string;
   category: string;
   priceCents: number;
-  imageUrl: string | null;
+  imageUrl: string;
+};
+
+export async function listEvents(): Promise<{ events: AdminEvent[] }> {
+  const resp = await fetch(`${API_URL}/admin/events`);
+  if (!resp.ok) throw new Error("Failed to fetch events");
+  return resp.json();
 }
 
-export async function fetchHealth(): Promise<HealthResponse> {
-  const res = await fetch(`${API_BASE_URL}/health`);
-
-  if (!res.ok) {
-    throw new Error(`Health check failed with status ${res.status}`);
-  }
-
-  return res.json();
+export async function listProducts(): Promise<{ products: Product[] }> {
+  const resp = await fetch(`${API_URL}/products`);
+  if (!resp.ok) throw new Error("Failed to fetch products");
+  return resp.json();
 }
 
-export async function fetchProducts(): Promise<ProductSummary[]> {
-  const res = await fetch(`${API_BASE_URL}/products`);
-
-  if (!res.ok) {
-    throw new Error(`Failed to load products. Status: ${res.status}`);
-  }
-
-  const data = (await res.json()) as ProductSummary[];
-  return data;
+export async function getRecommendations(sessionId: string): Promise<{ recommendations: Product[] }> {
+  const resp = await fetch(`${API_URL}/recommendations?sessionId=${encodeURIComponent(sessionId)}`);
+  if (!resp.ok) throw new Error("Failed to fetch recommendations");
+  return resp.json();
 }
