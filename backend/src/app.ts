@@ -1,24 +1,19 @@
-import express, { type Application } from "express";
-import morgan from "morgan";
+import express from "express";
 import cors from "cors";
+import morgan from "morgan";
 
 import eventsRoutes from "./routes/eventsRoutes.js";
 import recommendationsRoutes from "./routes/recommendationsRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import productsRoutes from "./routes/productsRoutes.js";
 
-const app: Application = express();
+const app = express();
 
-app.use(cors());
+app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(morgan("dev"));
 
-app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    service: "ppfe-backend",
-  });
-});
+app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.use("/events", eventsRoutes);
 app.use("/recommendations", recommendationsRoutes);
