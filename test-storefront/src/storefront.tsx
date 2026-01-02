@@ -1,100 +1,101 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { listProducts, sendEvent, type Product } from "./api";
 
-interface Product {
-  id: number;
-  sku: string;
-  name: string;
-  category: string;
-  priceCents: number;
-  imageUrl: string | null;
+function getSessionId(): string {
+  const key = "ppfe_session_id";
+  const existing = localStorage.getItem(key);
+  if (existing) return existing;
+  const id = `sess_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+  localStorage.setItem(key, id);
+  return id;
 }
 
-type LoadState = "idle" | "loading" | "success" | "error";
-
-export function Storefront() {
+export default function Storefront() {
+  const sessionId = useMemo(() => getSessionId(), []);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [products, setProducts] = useState<Product[]>([]);
-  const [state, setState] = useState<LoadState>("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadProducts();
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  useEffect(() => {
+    listProducts()
+      .then((data) => setProducts(data.products))
+      .finally(() => setLoading(false));
   }, []);
 
-  async function loadProducts() {
-    setState("loading");
-    setError(null);
-
-    try {
-      const res = await fetch("http://localhost:4000/products");
-      if (!res.ok) {
-        throw new Error(`Failed to load products: ${res.status}`);
-      }
-      const data = (await res.json()) as Product[];
-      setProducts(data);
-      setState("success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      setState("error");
-    }
+  function onProductClick(p: Product) {
+    void sendEvent({ sessionId, productId: p.id, eventType: "product_click" });
   }
 
   return (
-    <div className="sf-root">
-      <header className="sf-header">
-        <h1>E-commerce PPFE – Test Storefront</h1>
-        <p>
-          Enkel testbutik som visar produkter från backend. Senare kommer
-          rekommendationsflödet integreras här.
-        </p>
+    <div className="sf-shell">
+      <header className="sf-topbar">
+        <div className="sf-topbar-inner">
+          <div className="sf-brand">
+            PPFE <small>Retail Demo</small>
+          </div>
+          <button
+            type="button"
+            className="sf-btn"
+            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+          >
+            Theme: {theme}
+          </button>
+        </div>
       </header>
 
-      <main className="sf-main">
-        <section className="sf-products-section">
-          <div className="sf-products-header">
-            <h2>All products</h2>
-            <button type="button" onClick={loadProducts}>
-              Reload
-            </button>
-          </div>
-
-          {state === "loading" && <p>Loading products...</p>}
-
-          {state === "error" && (
-            <p className="sf-error">
-              Could not load products: {error ?? "unknown error"}
+      <main className="sf-container">
+        <section className="sf-hero">
+          <div className="sf-hero-card">
+            <h1 className="sf-hero-title">Sneakers & Essentials</h1>
+            <p className="sf-hero-sub">
+              Minimal storefront used to generate interaction events for the recommendation engine.
+              Click products to create events. Recommendations are debugged in the admin panel.
             </p>
-          )}
-
-          {state === "success" && products.length === 0 && (
-            <p>No products found. Did you run the seed script?</p>
-          )}
-
-          {state === "success" && products.length > 0 && (
-            <div className="sf-grid">
-              {products.map((p) => (
-                <article key={p.id} className="sf-card">
-                  <div className="sf-image-wrapper">
-                    {p.imageUrl ? (
-                      <img src={p.imageUrl} alt={p.name} />
-                    ) : (
-                      <div className="sf-image-placeholder">
-                        <span>{p.category}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="sf-card-body">
-                    <h3>{p.name}</h3>
-                    <p className="sf-sku">{p.sku}</p>
-                    <p className="sf-category">{p.category}</p>
-                    <p className="sf-price">
-                      {(p.priceCents / 100).toFixed(2)} kr
-                    </p>
-                  </div>
-                </article>
-              ))}
+          </div>
+          <div className="sf-hero-card">
+            <div className="product-meta">
+              <span className="pill">session</span>
+              <span className="product-price">{sessionId}</span>
             </div>
-          )}
+            <div className="product-meta product-meta-spaced">
+              <span className="pill">catalog</span>
+              <span className="product-price">{loading ? "…" : `${products.length} products`}</span>
+            </div>
+          </div>
         </section>
+
+        {loading ? (
+          <div className="sf-empty">Loading products…</div>
+        ) : products.length === 0 ? (
+          <div className="sf-empty">No products found. Seed the database.</div>
+        ) : (
+          <section className="sf-grid">
+            {products.map((p) => (
+              <article key={p.id} className="product-card" onClick={() => onProductClick(p)}>
+                <div className="product-media">
+                  <img src={p.imageUrl} alt={p.name} loading="lazy" />
+                </div>
+                <div className="product-body">
+                  <h3 className="product-name">{p.name}</h3>
+                  <div className="product-meta">
+                    <span className="pill">{p.category}</span>
+                    <span className="product-price">{(p.priceCents / 100).toFixed(2)} SEK</span>
+                  </div>
+                  <div className="product-meta">
+                    <span>{p.sku}</span>
+                    <button type="button" className="sf-btn sf-btn-accent">
+                      View
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
       </main>
     </div>
   );
