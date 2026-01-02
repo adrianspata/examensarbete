@@ -1,15 +1,8 @@
 import { Router } from "express";
-import {
-  getEvents,
-  getRecommendationsPreview,
-} from "../controllers/adminController.js";
+import { listEvents } from "../controllers/adminController.js";
 
 const router = Router();
 
-// Enkel loggvy över events för admin
-router.get("/events", getEvents);
-
-// Förhandsgranskning av rekommendationsmotorn i admin
-router.get("/recommendations/preview", getRecommendationsPreview);
+router.get("/events", listEvents);
 
 export default router;
