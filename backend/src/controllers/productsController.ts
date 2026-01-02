@@ -1,49 +1,30 @@
-import type { Request, Response, NextFunction } from "express";
-import { pool } from "../db/pool.js";
+import type { Request, Response } from "express";
+import pool from "../db/pool.js";
 
-export interface ProductResponse {
+type ProductRow = {
   id: number;
   sku: string;
   name: string;
   category: string;
-  priceCents: number;
-  imageUrl: string | null;
-}
+  price_cents: number;
+  image_url: string;
+};
 
-function mapRow(row: any): ProductResponse {
-  return {
-    id: row.id,
-    sku: row.sku,
-    name: row.name,
-    category: row.category,
-    priceCents: row.price_cents,
-    imageUrl: row.image_url,
-  };
-}
+export async function listProducts(_req: Request, res: Response) {
+  const result = await pool.query<ProductRow>(
+    `SELECT id, sku, name, category, price_cents, image_url
+     FROM products
+     ORDER BY id ASC`
+  );
 
-export async function listProducts(
-  _req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        sku,
-        name,
-        category,
-        price_cents,
-        image_url
-      FROM products
-      ORDER BY id ASC;
-    `
-    );
+  const products = result.rows.map((p) => ({
+    id: p.id,
+    sku: p.sku,
+    name: p.name,
+    category: p.category,
+    priceCents: p.price_cents,
+    imageUrl: p.image_url,
+  }));
 
-    const products = result.rows.map(mapRow);
-    res.json(products);
-  } catch (error) {
-    next(error);
-  }
+  res.json({ products });
 }

@@ -1,66 +1,41 @@
-import type { Request, Response, NextFunction } from "express";
-import { pool } from "../db/pool.js";
+import type { Request, Response } from "express";
+import pool from "../db/pool.js";
 
-type EventType = "view" | "click" | "add_to_cart";
+type CreateEventBody = {
+  sessionId?: string;
+  userId?: string | null;
+  productId?: number;
+  eventType?: string;
+};
 
-interface EventBody {
-  sessionId: string;
-  userId?: string;
-  productId: number;
-  type: EventType;
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === "string" && v.trim().length > 0;
 }
 
-export async function collectEvent(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  const { sessionId, userId, productId, type } = req.body as Partial<EventBody>;
+function isPositiveInt(v: unknown): v is number {
+  return typeof v === "number" && Number.isInteger(v) && v > 0;
+}
 
-  if (!sessionId || typeof sessionId !== "string") {
+export async function collectEvent(req: Request, res: Response) {
+  const body = req.body as CreateEventBody;
+
+  if (!isNonEmptyString(body.sessionId)) {
     return res.status(400).json({ error: "sessionId is required" });
   }
-
-  if (!productId || typeof productId !== "number") {
-    return res.status(400).json({ error: "productId (number) is required" });
+  if (!isPositiveInt(body.productId)) {
+    return res.status(400).json({ error: "productId must be a positive integer" });
+  }
+  if (!isNonEmptyString(body.eventType)) {
+    return res.status(400).json({ error: "eventType is required" });
   }
 
-  if (!type || !["view", "click", "add_to_cart"].includes(type)) {
-    return res.status(400).json({ error: "type must be view|click|add_to_cart" });
-  }
+  const userId = body.userId ?? null;
 
-  try {
-    await pool.query("BEGIN");
+  await pool.query(
+    `INSERT INTO events (session_id, user_id, product_id, event_type)
+     VALUES ($1, $2, $3, $4)`,
+    [body.sessionId.trim(), userId, body.productId, body.eventType.trim()]
+  );
 
-    // Upsert session
-    await pool.query(
-      `
-      INSERT INTO sessions (session_id, user_id)
-      VALUES ($1, $2)
-      ON CONFLICT (session_id)
-      DO UPDATE SET user_id = COALESCE(EXCLUDED.user_id, sessions.user_id);
-    `,
-      [sessionId, userId ?? null]
-    );
-
-    // Insert event
-    await pool.query(
-      `
-      INSERT INTO events (session_id, user_id, product_id, event_type)
-      VALUES ($1, $2, $3, $4);
-    `,
-      [sessionId, userId ?? null, productId, type]
-    );
-
-    await pool.query("COMMIT");
-
-    return res.status(201).json({ ok: true });
-  } catch (error) {
-    try {
-      await pool.query("ROLLBACK");
-    } catch {
-      // ignore rollback errors
-    }
-    return next(error);
-  }
+  res.status(201).json({ ok: true });
 }
