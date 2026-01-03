@@ -1,8 +1,13 @@
 import { Router } from "express";
-import { listEvents } from "../controllers/adminController.js";
+import {
+  // ... andra handlers
+  getRecommendationsPreviewHandler,
+} from "../controllers/adminController.js";
 
 const router = Router();
 
-router.get("/events", listEvents);
+// ... andra admin-routes
+
+router.get("/recommendations/preview", getRecommendationsPreviewHandler);
 
 export default router;

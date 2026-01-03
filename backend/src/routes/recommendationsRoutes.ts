@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { getRecommendations } from "../controllers/recommendationsController.js";
+import { getRecommendationsHandler } from "../controllers/recommendationsController.js";
 
 const router = Router();
 
-router.get("/", getRecommendations);
+// GET /recommendations?sessionId=...&currentProductId=...&limit=...
+router.get("/", getRecommendationsHandler);
 
 export default router;
