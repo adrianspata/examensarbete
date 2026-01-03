@@ -1,102 +1,240 @@
-import { useEffect, useMemo, useState } from "react";
-import { listProducts, sendEvent, type Product } from "./api";
+import { useEffect, useState } from "react";
+import { listProducts, sendEvent, getRecommendations } from "./api";
+import type { Product } from "./api";
 
-function getSessionId(): string {
-  const key = "ppfe_session_id";
-  const existing = localStorage.getItem(key);
-  if (existing) return existing;
-  const id = `sess_${Math.random().toString(16).slice(2)}_${Date.now()}`;
-  localStorage.setItem(key, id);
-  return id;
+function getOrCreateSessionId(): string {
+  if (typeof window === "undefined") return "demo-session";
+
+  const KEY = "ppfe_session_id";
+  let existing = window.localStorage.getItem(KEY);
+  if (!existing) {
+    const random =
+      "sess_" +
+      Math.random().toString(36).slice(2) +
+      Date.now().toString(36);
+    window.localStorage.setItem(KEY, random);
+    existing = random;
+  }
+  return existing;
 }
 
 export default function Storefront() {
-  const sessionId = useMemo(() => getSessionId(), []);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [recommended, setRecommended] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingReco, setLoadingReco] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Init: skapa session + hämta produkter + första rekommendationer
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-  }, [theme]);
+    const sid = getOrCreateSessionId();
+    setSessionId(sid);
 
-  useEffect(() => {
-    listProducts()
-      .then((data) => setProducts(data.products))
-      .finally(() => setLoading(false));
+    async function init() {
+      setLoadingProducts(true);
+      setError(null);
+      try {
+        const items = await listProducts();
+        setProducts(items);
+
+        // direkt första rekommendationer baserat på sessionen
+        setLoadingReco(true);
+        try {
+          const recos = await getRecommendations({
+            sessionId: sid,
+            limit: 8,
+          });
+          setRecommended(recos);
+        } finally {
+          setLoadingReco(false);
+        }
+      } catch (err) {
+        console.error(err);
+        setError(
+          err instanceof Error ? err.message : "Kunde inte hämta produkter."
+        );
+      } finally {
+        setLoadingProducts(false);
+      }
+    }
+
+    void init();
   }, []);
 
-  function onProductClick(p: Product) {
-    void sendEvent({ sessionId, productId: p.id, eventType: "product_click" });
+  async function handleProductClick(product: Product) {
+    if (!sessionId) return;
+
+    // skicka click-event
+    void sendEvent(sessionId, product.id, "click");
+
+    // uppdatera rekommendationer baserat på den klickade produkten
+    setLoadingReco(true);
+    try {
+      const recos = await getRecommendations({
+        sessionId,
+        currentProductId: product.id,
+        limit: 8,
+      });
+      setRecommended(recos);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingReco(false);
+    }
+  }
+
+  async function handleReload() {
+    if (!sessionId) return;
+
+    setLoadingProducts(true);
+    setError(null);
+    try {
+      const items = await listProducts();
+      setProducts(items);
+
+      setLoadingReco(true);
+      const recos = await getRecommendations({
+        sessionId,
+        limit: 8,
+      });
+      setRecommended(recos);
+    } catch (err) {
+      console.error(err);
+      setError(
+        err instanceof Error ? err.message : "Kunde inte uppdatera produkter."
+      );
+    } finally {
+      setLoadingProducts(false);
+      setLoadingReco(false);
+    }
   }
 
   return (
-    <div className="sf-shell">
-      <header className="sf-topbar">
-        <div className="sf-topbar-inner">
-          <div className="sf-brand">
-            PPFE <small>Retail Demo</small>
-          </div>
+    <div className="storefront-page">
+      <header className="storefront-header">
+        <h1 className="storefront-title">PPFE Demo Storefront</h1>
+        <p className="storefront-subtitle">
+          Enkel demobutik för att testa den personaliserade produktfeed-motorn.
+        </p>
+        <div className="storefront-header-actions">
           <button
             type="button"
-            className="sf-btn"
-            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+            className="storefront-button"
+            onClick={handleReload}
+            disabled={loadingProducts}
           >
-            Theme: {theme}
+            {loadingProducts ? "Uppdaterar..." : "Ladda om produkter & rekommendationer"}
           </button>
+          {sessionId && (
+            <span className="storefront-session">
+              Session: <code>{sessionId}</code>
+            </span>
+          )}
         </div>
       </header>
 
-      <main className="sf-container">
-        <section className="sf-hero">
-          <div className="sf-hero-card">
-            <h1 className="sf-hero-title">Sneakers & Essentials</h1>
-            <p className="sf-hero-sub">
-              Minimal storefront used to generate interaction events for the recommendation engine.
-              Click products to create events. Recommendations are debugged in the admin panel.
-            </p>
-          </div>
-          <div className="sf-hero-card">
-            <div className="product-meta">
-              <span className="pill">session</span>
-              <span className="product-price">{sessionId}</span>
-            </div>
-            <div className="product-meta product-meta-spaced">
-              <span className="pill">catalog</span>
-              <span className="product-price">{loading ? "…" : `${products.length} products`}</span>
-            </div>
-          </div>
-        </section>
+      {error && <div className="storefront-error">Fel: {error}</div>}
 
-        {loading ? (
-          <div className="sf-empty">Loading products…</div>
-        ) : products.length === 0 ? (
-          <div className="sf-empty">No products found. Seed the database.</div>
-        ) : (
-          <section className="sf-grid">
-            {products.map((p) => (
-              <article key={p.id} className="product-card" onClick={() => onProductClick(p)}>
-                <div className="product-media">
-                  <img src={p.imageUrl} alt={p.name} loading="lazy" />
-                </div>
-                <div className="product-body">
-                  <h3 className="product-name">{p.name}</h3>
-                  <div className="product-meta">
-                    <span className="pill">{p.category}</span>
-                    <span className="product-price">{(p.priceCents / 100).toFixed(2)} SEK</span>
+      <div className="storefront-layout">
+        <section className="storefront-section storefront-products">
+          <h2 className="storefront-section-title">Alla produkter</h2>
+
+          {loadingProducts && products.length === 0 ? (
+            <div className="storefront-state">Hämtar produkter...</div>
+          ) : products.length === 0 ? (
+            <div className="storefront-state">
+              Inga produkter att visa. Kontrollera seed-skriptet.
+            </div>
+          ) : (
+            <div className="storefront-grid">
+              {products.map((product) => (
+                <article
+                  key={product.id}
+                  className="product-card"
+                  onClick={() => handleProductClick(product)}
+                >
+                  <div className="product-image-wrapper">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="product-image"
+                      />
+                    ) : (
+                      <div className="product-image-fallback">
+                        {product.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                   </div>
                   <div className="product-meta">
-                    <span>{p.sku}</span>
-                    <button type="button" className="sf-btn sf-btn-accent">
-                      View
+                    <h3 className="product-name">{product.name}</h3>
+                    <p className="product-sku">SKU: {product.sku}</p>
+                    <p className="product-category">
+                      {product.category ?? "Okänd kategori"}
+                    </p>
+                    <p className="product-price">
+                      {product.price != null
+                        ? `${product.price.toFixed(2)} kr`
+                        : "Pris saknas"}
+                    </p>
+                  </div>
+                  <div className="product-actions">
+                    <button
+                      type="button"
+                      className="product-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleProductClick(product);
+                      }}
+                    >
+                      Visa / klicka (logga event)
                     </button>
                   </div>
-                </div>
-              </article>
-            ))}
-          </section>
-        )}
-      </main>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <aside className="storefront-section storefront-recommended">
+          <h2 className="storefront-section-title">Rekommenderat för dig</h2>
+
+          {loadingReco && (
+            <div className="storefront-state">Beräknar rekommendationer...</div>
+          )}
+
+          {!loadingReco && recommended.length === 0 && (
+            <div className="storefront-state">
+              Inga rekommendationer ännu. Klicka runt på några produkter för att
+              generera event.
+            </div>
+          )}
+
+          {!loadingReco && recommended.length > 0 && (
+            <ul className="storefront-reco-list">
+              {recommended.map((product) => (
+                <li key={product.id} className="storefront-reco-item">
+                  <div className="reco-main">
+                    <span className="reco-name">{product.name}</span>
+                    <span className="reco-sku">({product.sku})</span>
+                  </div>
+                  <div className="reco-meta">
+                    <span className="reco-category">
+                      {product.category ?? "Okänd kategori"}
+                    </span>
+                    <span className="reco-price">
+                      {product.price != null
+                        ? `${product.price.toFixed(2)} kr`
+                        : "Pris saknas"}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

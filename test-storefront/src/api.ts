@@ -1,29 +1,119 @@
-const API_URL = "http://localhost:4000";
+const BASE_URL = "http://localhost:4000";
 
-export type Product = {
+export interface Product {
   id: number;
   sku: string;
   name: string;
-  category: string;
-  priceCents: number;
-  imageUrl: string;
-};
-
-export async function listProducts(): Promise<{ products: Product[] }> {
-  const res = await fetch(`${API_URL}/products`);
-  if (!res.ok) throw new Error("Failed to fetch products");
-  return res.json();
+  category: string | null;
+  price: number | null;
+  image_url: string | null;
+  created_at: string;
 }
 
-export async function sendEvent(payload: {
-  sessionId: string;
-  productId: number;
-  eventType: string;
-  userId?: string | null;
-}) {
-  await fetch(`${API_URL}/events`, {
+interface RecommendationsMeta {
+  sessionId: string | null;
+  currentProductId: number | null;
+  limit?: number;
+}
+
+interface RecommendationsResponse {
+  items: Product[];
+  meta: RecommendationsMeta;
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      `Request failed with ${res.status} ${res.statusText}${
+        text ? `: ${text}` : ""
+      }`
+    );
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function listProducts(): Promise<Product[]> {
+  const res = await fetch(`${BASE_URL}/products`);
+  const raw = await handleResponse<unknown>(res);
+
+  // Normalisera svaret så att vi ALLTID returnerar en array
+  if (Array.isArray(raw)) {
+    return raw as Product[];
+  }
+
+  if (
+    raw &&
+    typeof raw === "object" &&
+    Array.isArray((raw as any).items)
+  ) {
+    return (raw as any).items as Product[];
+  }
+
+  if (
+    raw &&
+    typeof raw === "object" &&
+    Array.isArray((raw as any).products)
+  ) {
+    return (raw as any).products as Product[];
+  }
+
+  console.warn("Okänt format på /products-responsen:", raw);
+  return [];
+}
+
+/**
+ * Skicka event till backend.
+ * Används när användaren interagerar med en produkt i storefront.
+ */
+export async function sendEvent(
+  sessionId: string,
+  productId: number,
+  eventType: "view" | "click" | "add_to_cart"
+): Promise<void> {
+  const res = await fetch(`${BASE_URL}/events`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sessionId,
+      productId,
+      eventType,
+    }),
   });
+
+  if (!res.ok) {
+    // vi loggar bara – UI:n behöver inte krascha
+    const text = await res.text().catch(() => "");
+    console.error(
+      `Failed to send event: ${res.status} ${res.statusText} ${text}`
+    );
+  }
+}
+
+/**
+ * Hämta rekommendationer från backend för en given session,
+ * valfritt med currentProductId.
+ */
+export async function getRecommendations(params: {
+  sessionId: string;
+  currentProductId?: number;
+  limit?: number;
+}): Promise<Product[]> {
+  const search = new URLSearchParams();
+  search.set("sessionId", params.sessionId);
+
+  if (typeof params.currentProductId === "number") {
+    search.set("currentProductId", String(params.currentProductId));
+  }
+  if (typeof params.limit === "number") {
+    search.set("limit", String(params.limit));
+  }
+
+  const url = `${BASE_URL}/recommendations?${search.toString()}`;
+  const res = await fetch(url);
+  const data = await handleResponse<RecommendationsResponse>(res);
+
+  return data.items;
 }
