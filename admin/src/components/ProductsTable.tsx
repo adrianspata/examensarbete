@@ -1,47 +1,81 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { listProducts, type Product } from "../api";
 
-export default function ProductsTable() {
+const ProductsTable: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    setLoading(true);
+    setError(null);
+
     listProducts()
-      .then((data) => setProducts(data.products))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!isMounted) return;
+        setProducts(data);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setError(
+          err instanceof Error ? err.message : "Kunde inte ladda produkter"
+        );
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-title">Products</div>
-        <div className="card-meta">{loading ? "Loading..." : `${products.length} items`}</div>
+    <section className="panel">
+      <div className="panel-header">
+        <h2 className="panel-title">Products</h2>
+        <p className="panel-subtitle">
+          Aktuell produktkatalog hämtad från backend <code>/products</code>.
+        </p>
       </div>
 
-      {loading ? (
-        <div className="card-meta">Fetching products…</div>
-      ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>SKU</th>
-              <th>Name</th>
-              <th>Category</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id}>
-                <td className="card-meta">{p.sku}</td>
-                <td>{p.name}</td>
-                <td><span className="pill">{p.category}</span></td>
-                <td>{(p.priceCents / 100).toFixed(2)} SEK</td>
+      <div className="panel-body">
+        {loading && <p className="panel-state">Laddar produkter…</p>}
+        {error && <p className="panel-error">Fel: {error}</p>}
+        {!loading && !error && products.length === 0 && (
+          <p className="panel-state">Inga produkter hittades.</p>
+        )}
+
+        {!loading && !error && products.length > 0 && (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>SKU</th>
+                <th>Namn</th>
+                <th>Kategori</th>
+                <th>Pris</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.id}</td>
+                  <td>{p.sku}</td>
+                  <td>{p.name}</td>
+                  <td>{p.category ?? "–"}</td>
+                  <td>{p.price != null ? `${p.price.toFixed(2)} kr` : "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
   );
-}
+};
+
+export default ProductsTable;

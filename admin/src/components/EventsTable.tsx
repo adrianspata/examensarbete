@@ -1,49 +1,85 @@
-import { useEffect, useState } from "react";
-import { listEvents, type AdminEvent } from "../api";
+import React, { useEffect, useState } from "react";
+import { listEvents, type EventRow } from "../api";
 
-export default function EventsTable() {
-  const [events, setEvents] = useState<AdminEvent[]>([]);
-  const [loading, setLoading] = useState(true);
+const EventsTable: React.FC = () => {
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
+    setLoading(true);
+    setError(null);
+
     listEvents()
-      .then((data) => setEvents(data.events))
-      .finally(() => setLoading(false));
+      .then((rows) => {
+        if (!isMounted) return;
+        setEvents(rows);
+      })
+      .catch((err) => {
+        if (!isMounted) return;
+        setError(
+          err instanceof Error ? err.message : "Kunde inte ladda events"
+        );
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-title">Event log</div>
-        <div className="card-meta">{loading ? "Loading..." : `${events.length} rows`}</div>
+    <section className="panel">
+      <div className="panel-header">
+        <h2 className="panel-title">Events</h2>
+        <p className="panel-subtitle">
+          Senaste interaktioner från storefront (view / click / add_to_cart).
+        </p>
       </div>
 
-      {loading ? (
-        <div className="card-meta">Fetching events…</div>
-      ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Event</th>
-              <th>Product</th>
-              <th>SKU</th>
-              <th>Session</th>
-              <th>Timestamp</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <tr key={e.id}>
-                <td><span className="pill">{e.eventType}</span></td>
-                <td>{e.productName}</td>
-                <td>{e.productSku}</td>
-                <td className="card-meta">{e.sessionId}</td>
-                <td className="card-meta">{new Date(e.createdAt).toLocaleString()}</td>
+      <div className="panel-body">
+        {loading && <p className="panel-state">Laddar events…</p>}
+        {error && <p className="panel-error">Fel: {error}</p>}
+        {!loading && !error && events.length === 0 && (
+          <p className="panel-state">Inga events registrerade ännu.</p>
+        )}
+
+        {!loading && !error && events.length > 0 && (
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Session</th>
+                <th>Användare</th>
+                <th>Typ</th>
+                <th>Produkt</th>
+                <th>SKU</th>
+                <th>Skapad</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+            </thead>
+            <tbody>
+              {events.map((e) => (
+                <tr key={e.id}>
+                  <td>{e.id}</td>
+                  <td>{e.sessionId}</td>
+                  <td>{e.userId ?? "–"}</td>
+                  <td>{e.eventType}</td>
+                  <td>{e.productName ?? "–"}</td>
+                  <td>{e.productSku ?? "–"}</td>
+                  <td>{new Date(e.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
   );
-}
+};
+
+export default EventsTable;
