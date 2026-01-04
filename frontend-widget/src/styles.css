@@ -1,0 +1,127 @@
+/* Baslayout för widgeten – namespacad med ppfe-widget-* för att inte krocka */
+
+.ppfe-widget-root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+  color: #111827;
+  background: transparent;
+}
+
+.ppfe-widget-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.ppfe-widget-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ppfe-widget-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.ppfe-widget-content {
+  margin-top: 4px;
+}
+
+.ppfe-widget-state {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Grid */
+
+.ppfe-widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+/* Card */
+
+.ppfe-widget-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ppfe-widget-image {
+  background: #f3f4f6;
+  aspect-ratio: 4 / 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ppfe-widget-image-tag {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
+}
+
+.ppfe-widget-image-fallback {
+  font-size: 18px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.ppfe-widget-body {
+  padding: 10px 11px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ppfe-widget-sku {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #9ca3af;
+}
+
+.ppfe-widget-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ppfe-widget-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ppfe-widget-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.ppfe-widget-price {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ppfe-widget-button {
+  margin-top: 8px;
+  width: 100%;
+  border-radius: 999px;
+  border: 0;
+  padding: 6px 0;
+  font-size: 12px;
+  cursor: pointer;
+  background: #111827;
+  color: #ffffff;
+}
