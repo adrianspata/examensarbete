@@ -1,4 +1,4 @@
-import { pool } from "./pool.js";
+import pool from "./pool.js";
 import { createProductsTableSQL } from "../models/productModel.js";
 import { createSessionsTableSQL } from "../models/sessionModel.js";
 import { createEventsTableSQL } from "../models/eventModel.js";
