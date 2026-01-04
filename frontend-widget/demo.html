@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <title>PPFE Widget Demo</title>
+
+    <link rel="stylesheet" href="./dist/style.css" />
+  </head>
+  <body>
+    <main
+      style="
+        max-width: 900px;
+        margin: 40px auto;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+          'Segoe UI', sans-serif;
+      "
+    >
+      <h1 style="font-size: 24px; margin-bottom: 8px">PPFE – Widgetdemo</h1>
+      <p style="font-size: 14px; color: #4b5563; margin-bottom: 24px">
+        Den här sidan simulerar en liten e-handelssida som laddar in din
+        rekommendations-widget.
+      </p>
+
+      <section>
+        <div id="ppfe-recos"></div>
+      </section>
+    </main>
+
+    <!-- JS-bundlen som Vite byggde -->
+    <script src="./dist/ppfe-widget.iife.js"></script>
+    <script>
+      // Initiera widgeten globalt
+      window.PPFE &&
+        window.PPFE.init({
+          apiBaseUrl: "http://localhost:4000",
+          containerId: "ppfe-recos",
+          sessionId: "demo-session-123",
+          limit: 4,
+        });
+    </script>
+  </body>
+</html>
