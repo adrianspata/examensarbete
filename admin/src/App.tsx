@@ -3,26 +3,36 @@ import { fetchHealth } from "./api";
 import ProductsTable from "./components/ProductsTable";
 import EventsTable from "./components/EventsTable";
 import RecommendationsDebug from "./components/RecommendationsDebug";
+import "./styles/index.css";
 
 type Tab = "products" | "events" | "recommendations";
 
+interface HealthResponse {
+  ok: boolean;
+  message?: string;
+}
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>("products");
-  const [health, setHealth] = useState<string | null>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
   const [healthError, setHealthError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
     fetchHealth()
-      .then((status) => {
+      .then((data) => {
         if (!isMounted) return;
-        setHealth(status);
+        // förväntar oss t.ex. { ok: true, message?: string }
+        setHealth(typeof data === "object" && data !== null ? data : null);
         setHealthError(null);
       })
       .catch((err) => {
         if (!isMounted) return;
-        setHealthError(err instanceof Error ? err.message : "Okänt fel");
+        setHealth(null);
+        setHealthError(
+          err instanceof Error ? err.message : "Okänt fel mot backend"
+        );
       });
 
     return () => {
@@ -30,30 +40,49 @@ const App: React.FC = () => {
     };
   }, []);
 
+  let healthLabel: string;
+  let healthClass = "admin-health";
+
+  if (healthError) {
+    healthLabel = "Backend-fel";
+    healthClass += " admin-health--error";
+  } else if (!health) {
+    healthLabel = "Kontrollerar backend…";
+    healthClass += " admin-health--loading";
+  } else if (health.ok) {
+    healthLabel = "Backend: OK";
+    healthClass += " admin-health--ok";
+  } else {
+    healthLabel = "Backend: problem";
+    healthClass += " admin-health--error";
+  }
+
   return (
     <div className="admin-root">
       <header className="admin-header">
         <div className="admin-header-main">
           <div>
-            <h1 className="admin-title">PPFE Admin</h1>
+            <h1 className="admin-title">Admin dashboard</h1>
             <p className="admin-subtitle">
-              Minimal kontrollpanel för produkter, events och rekommendationer.
+              Kontrollpanel för produkter, events och
+              rekommendationer.
             </p>
           </div>
-          <div className="admin-badge">Local dev</div>
         </div>
 
         <div className="admin-header-meta">
-          {health && !healthError && (
-            <span className="admin-health admin-health--ok">
-              Backend: {health}
-            </span>
-          )}
-          {healthError && (
-            <span className="admin-health admin-health--error">
-              Backend-fel: {healthError}
-            </span>
-          )}
+          <span className={healthClass}>
+            {healthLabel}
+            {health && health.message && (
+              <span className="admin-health-message"> – {health.message}</span>
+            )}
+            {healthError && (
+              <span className="admin-health-message">
+                {" "}
+                – {healthError}
+              </span>
+            )}
+          </span>
         </div>
       </header>
 

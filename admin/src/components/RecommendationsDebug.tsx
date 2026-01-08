@@ -1,166 +1,124 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
-  listProducts,
-  previewRecommendations,
-  type Product,
-  type Recommendation,
+  fetchRecommendationsPreview,
+  type RecommendationsPreviewItem,
+  type RecommendationsPreviewDebug,
 } from "../api";
 
-const DEFAULT_SESSION_ID = "demo-session";
-
 const RecommendationsDebug: React.FC = () => {
-  const [sessionId, setSessionId] = useState(DEFAULT_SESSION_ID);
-  const [limit, setLimit] = useState(4);
-
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [productsError, setProductsError] = useState<string | null>(null);
-
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [sessionId, setSessionId] = useState<string>("");
+  const [currentProductId, setCurrentProductId] = useState<string>("");
+  const [items, setItems] = useState<RecommendationsPreviewItem[]>([]);
+  const [debug, setDebug] = useState<RecommendationsPreviewDebug | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Hämta produkter en gång (för kontext)
-  useEffect(() => {
-    let isMounted = true;
-    setProductsLoading(true);
-    setProductsError(null);
-
-    listProducts()
-      .then((data) => {
-        if (!isMounted) return;
-        setProducts(data);
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        setProductsError(
-          err instanceof Error ? err.message : "Kunde inte ladda produkter"
-        );
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        setProductsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  async function handlePreview(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleRun() {
     setLoading(true);
     setError(null);
 
     try {
-      const data = await previewRecommendations(sessionId, limit);
-      setRecommendations(data);
+      const result = await fetchRecommendationsPreview({
+        sessionId: sessionId.trim() || undefined,
+        currentProductId: currentProductId
+          ? Number.parseInt(currentProductId, 10)
+          : undefined,
+        limit: 8,
+      });
+
+      if (!result.ok) {
+        setError(result as unknown as string);
+        setItems([]);
+        setDebug(null);
+        return;
+      }
+
+      setItems(result.items ?? []);
+      setDebug(result.debug ?? null);
     } catch (err) {
+      setItems([]);
+      setDebug(null);
       setError(
         err instanceof Error ? err.message : "Kunde inte hämta rekommendationer"
       );
-      setRecommendations([]);
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="panel-recommendations">
-      <div className="panel-body">
-        <form className="reco-form" onSubmit={handlePreview}>
-          <div className="reco-form-group">
-            <label className="reco-label" htmlFor="session-id">
-              Session ID
-            </label>
+    <div className="rec-debug">
+      <div className="rec-debug-controls">
+        <div className="rec-debug-row">
+          <label>
+            Session ID
             <input
-              id="session-id"
-              className="reco-input"
+              type="text"
               value={sessionId}
               onChange={(e) => setSessionId(e.target.value)}
-              placeholder="t.ex. demo-session"
+              placeholder="t.ex. sess_123..."
             />
-          </div>
-
-          <div className="reco-form-group">
-            <label className="reco-label" htmlFor="limit">
-              Max antal
-            </label>
+          </label>
+          <label>
+            Current product ID
             <input
-              id="limit"
-              className="reco-input"
               type="number"
+              value={currentProductId}
+              onChange={(e) => setCurrentProductId(e.target.value)}
+              placeholder="valfritt"
               min={1}
-              max={20}
-              value={limit}
-              onChange={(e) => setLimit(Number(e.target.value) || 1)}
             />
-          </div>
-
-          <div className="reco-form-group">
-            <span className="reco-label">&nbsp;</span>
-            <button
-              type="submit"
-              className="reco-button"
-              disabled={loading}
-            >
-              {loading ? "Hämtar..." : "Förhandsvisa"}
-            </button>
-          </div>
-        </form>
-
-        <div className="reco-meta">
-          <h3 className="reco-meta-title">Katalogstatus</h3>
-          {productsLoading && (
-            <p className="panel-state">Laddar produkter för sammanfattning…</p>
-          )}
-          {productsError && (
-            <p className="panel-error">Fel vid produktladdning: {productsError}</p>
-          )}
-          {!productsLoading && !productsError && (
-            <dl className="reco-meta-row">
-              <dt>Antal produkter</dt>
-              <dd>{products.length}</dd>
-            </dl>
-          )}
+          </label>
+          <button type="button" onClick={handleRun} disabled={loading}>
+            {loading ? "Laddar..." : "Ladda rekommendationer"}
+          </button>
         </div>
-
-        {error && <div className="panel-error">{error}</div>}
-
-        {recommendations.length === 0 && !loading && !error && (
-          <div className="panel-state">
-            Inga rekommendationer ännu. Kör en förhandsvisning med knappen
-            ovan.
-          </div>
-        )}
-
-        {recommendations.length > 0 && (
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>SKU</th>
-                <th>Namn</th>
-                <th>Kategori</th>
-                <th>Score</th>
-                <th>Orsak</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recommendations.map((rec) => (
-                <tr key={rec.productId}>
-                  <td>{rec.productId}</td>
-                  <td>{rec.product.sku}</td>
-                  <td>{rec.product.name}</td>
-                  <td>{rec.product.category ?? "–"}</td>
-                  <td>{rec.score.toFixed(2)}</td>
-                  <td>{rec.reason}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
+
+      {error && <p className="admin-error">⚠️ {error}</p>}
+
+      {items.length > 0 && (
+        <div className="rec-grid">
+          {items.map((item) => (
+            <article key={item.id} className="rec-card">
+              <div className="rec-card-main">
+                <h3>{item.name}</h3>
+                <p className="rec-card-sku">{item.sku}</p>
+                {item.category && (
+                  <p className="rec-card-category">{item.category}</p>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      {items.length === 0 && !loading && !error && (
+        <p className="admin-empty">
+          Inga rekommendationer att visa ännu – kör en sökning ovan.
+        </p>
+      )}
+
+      {debug && (
+        <div className="rec-debug-meta">
+          <h3>Debug-info</h3>
+          <ul>
+            <li>
+              <strong>Strategy:</strong> {debug.strategy}
+            </li>
+            <li>
+              <strong>Session:</strong> {debug.sessionId ?? "–"}
+            </li>
+            <li>
+              <strong>Current product ID:</strong>{" "}
+              {debug.currentProductId ?? "–"}
+            </li>
+            <li>
+              <strong>Limit:</strong> {debug.limit}
+            </li>
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

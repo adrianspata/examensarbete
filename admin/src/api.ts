@@ -1,81 +1,116 @@
-const BASE_URL = "http://localhost:4000";
+const API_BASE = "http://localhost:4000";
 
-export type Product = {
+// Gemensam helper för JSON-svar
+async function handleJson<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(
+      `Request failed with ${res.status} ${res.statusText}: ${text}`
+    );
+  }
+  return (await res.json()) as T;
+}
+
+/**
+ * Health-check – App.tsx förväntar sig en *string*.
+ * Vi mappar vad backend än skickar till en läsbar text.
+ */
+export async function fetchHealth(): Promise<string> {
+  const res = await fetch(`${API_BASE}/health`);
+
+  try {
+    const data = await res.json();
+
+    if (data && typeof data === "object") {
+      const anyData = data as any;
+
+      if (typeof anyData.message === "string") {
+        return anyData.message; // t.ex. "OK"
+      }
+      if (typeof anyData.status === "string") {
+        return anyData.status; // t.ex. "healthy"
+      }
+    }
+
+    // fallback om det inte finns vettiga fält
+    return res.ok ? "OK" : `Status ${res.status}`;
+  } catch {
+    // Om JSON-parse failar, använd bara status
+    return res.ok ? "OK" : `Status ${res.status}`;
+  }
+}
+
+/* ---------- Products ---------- */
+
+export interface Product {
   id: number;
   sku: string;
   name: string;
   category: string | null;
-  price: number | null;
-  imageUrl: string | null;
-};
-
-export type EventRow = {
-  id: number;
-  sessionId: string;
-  userId: string | null;
-  productId: number | null;
-  eventType: string;
-  createdAt: string;
-  productSku: string | null;
-  productName: string | null;
-};
-
-export type Recommendation = {
-  productId: number;
-  score: number;
-  reason: string;
-  product: Product;
-};
-
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(
-      `API error ${res.status}${
-        text ? `: ${text.slice(0, 120)}` : ""
-      }`
-    );
-  }
-  return res.json() as Promise<T>;
-}
-
-export async function fetchHealth(): Promise<string> {
-  const res = await fetch(`${BASE_URL}/health`);
-  if (!res.ok) {
-    throw new Error(`Health check failed (${res.status})`);
-  }
-
-  // Försök läsa JSON, annars text
-  try {
-    const data = (await res.json()) as { status?: string };
-    return data.status ?? "ok";
-  } catch {
-    const text = await res.text();
-    return text || "ok";
-  }
+  image_url?: string | null;
+  imageUrl?: string | null;
 }
 
 export async function listProducts(): Promise<Product[]> {
-  const res = await fetch(`${BASE_URL}/products`);
-  return handleResponse<Product[]>(res);
+  const res = await fetch(`${API_BASE}/admin/products`);
+  return handleJson<Product[]>(res);
+}
+
+/* ---------- Events ---------- */
+
+export interface EventRow {
+  id: number;
+  session_id: string;
+  event_type: string;
+  created_at: string;
+  product_sku: string | null;
+  product_name: string | null;
 }
 
 export async function listEvents(): Promise<EventRow[]> {
-  const res = await fetch(`${BASE_URL}/admin/events`);
-  return handleResponse<EventRow[]>(res);
+  const res = await fetch(`${API_BASE}/admin/events`);
+  return handleJson<EventRow[]>(res);
 }
 
-export async function previewRecommendations(
-  sessionId: string,
-  limit: number
-): Promise<Recommendation[]> {
-  const params = new URLSearchParams({
-    sessionId,
-    limit: String(limit),
-  });
+/* ---------- Recommendations preview ---------- */
 
-  const res = await fetch(
-    `${BASE_URL}/admin/recommendations/preview?${params.toString()}`
-  );
-  return handleResponse<Recommendation[]>(res);
+export interface RecommendationsPreviewItem extends Product {}
+
+export interface RecommendationsPreviewDebug {
+  strategy: string;
+  sessionId: string | null;
+  currentProductId: number | null;
+  limit: number;
+}
+
+export interface RecommendationsPreviewResponse {
+  ok: boolean;
+  items: RecommendationsPreviewItem[];
+  debug?: RecommendationsPreviewDebug;
+}
+
+export interface RecommendationsPreviewParams {
+  sessionId?: string;
+  currentProductId?: number;
+  limit?: number;
+}
+
+export async function fetchRecommendationsPreview(
+  params: RecommendationsPreviewParams
+): Promise<RecommendationsPreviewResponse> {
+  const qs = new URLSearchParams();
+  if (params.sessionId) qs.set("sessionId", params.sessionId);
+  if (typeof params.currentProductId === "number") {
+    qs.set("currentProductId", String(params.currentProductId));
+  }
+  if (typeof params.limit === "number") {
+    qs.set("limit", String(params.limit));
+  }
+
+  const url = `${API_BASE}/admin/recommendations/preview?${
+    qs.toString() || ""
+  }`;
+
+  const res = await fetch(url);
+  return handleJson<RecommendationsPreviewResponse>(res);
 }

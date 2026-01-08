@@ -3,19 +3,17 @@ import { listEvents, type EventRow } from "../api";
 
 const EventsTable: React.FC = () => {
   const [events, setEvents] = useState<EventRow[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
-    setLoading(true);
-    setError(null);
-
     listEvents()
       .then((rows) => {
         if (!isMounted) return;
         setEvents(rows);
+        setError(null);
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -33,52 +31,45 @@ const EventsTable: React.FC = () => {
     };
   }, []);
 
+  if (loading) {
+    return <p>Laddar events…</p>;
+  }
+
+  if (error) {
+    return <p className="error-text">{error}</p>;
+  }
+
+  if (!events.length) {
+    return <p>Inga events hittades.</p>;
+  }
+
   return (
-    <section className="panel">
-      <div className="panel-header">
-        <h2 className="panel-title">Events</h2>
-        <p className="panel-subtitle">
-          Senaste interaktioner från storefront (view / click / add_to_cart).
-        </p>
-      </div>
-
-      <div className="panel-body">
-        {loading && <p className="panel-state">Laddar events…</p>}
-        {error && <p className="panel-error">Fel: {error}</p>}
-        {!loading && !error && events.length === 0 && (
-          <p className="panel-state">Inga events registrerade ännu.</p>
-        )}
-
-        {!loading && !error && events.length > 0 && (
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Session</th>
-                <th>Användare</th>
-                <th>Typ</th>
-                <th>Produkt</th>
-                <th>SKU</th>
-                <th>Skapad</th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((e) => (
-                <tr key={e.id}>
-                  <td>{e.id}</td>
-                  <td>{e.sessionId}</td>
-                  <td>{e.userId ?? "–"}</td>
-                  <td>{e.eventType}</td>
-                  <td>{e.productName ?? "–"}</td>
-                  <td>{e.productSku ?? "–"}</td>
-                  <td>{new Date(e.createdAt).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </section>
+    <div className="table-wrapper">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Tid</th>
+            <th>Session</th>
+            <th>Typ</th>
+            <th>Produkt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {events.map((e) => (
+            <tr key={e.id}>
+              <td>{new Date(e.created_at).toLocaleString()}</td>
+              <td>{e.session_id}</td>
+              <td>{e.event_type}</td>
+              <td>
+                {e.product_sku
+                  ? `${e.product_name ?? "Okänd"} (${e.product_sku})`
+                  : "–"}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 };
 
