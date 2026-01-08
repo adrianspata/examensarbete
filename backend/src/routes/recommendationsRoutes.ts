@@ -1,9 +1,15 @@
 import { Router } from "express";
-import { getRecommendationsHandler } from "../controllers/recommendationsController.js";
+import {
+  getRecommendationsHandler,
+  getRecommendationsPreviewHandler,
+} from "../controllers/recommendationsController.js";
 
 const router = Router();
 
-// GET /recommendations?sessionId=...&currentProductId=...&limit=...
+// används av storefront-widget / test-storefront
 router.get("/", getRecommendationsHandler);
+
+// admin-preview (om du vill ha den här också – du har även /admin/... route)
+router.get("/preview", getRecommendationsPreviewHandler);
 
 export default router;

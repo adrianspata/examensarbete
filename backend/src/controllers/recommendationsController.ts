@@ -1,40 +1,69 @@
-import { Request, Response, NextFunction } from "express";
-import { getRecommendations } from "../services/recommendationEngine.js";
+import type { Request, Response } from "express";
+import {
+  getRecommendations,
+  getRecommendationsWithDebug,
+} from "../services/recommendationEngine.js";
 
-export async function getRecommendationsHandler(
+export async function getRecommendationsHandler(req: Request, res: Response) {
+  try {
+    const sessionId =
+      (req.query.sessionId as string | undefined) ??
+      (req.query.session_id as string | undefined) ??
+      null;
+
+    const limitParam = req.query.limit as string | undefined;
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : 8;
+
+    const result = await getRecommendations({ sessionId, limit });
+
+    res.json({
+      ok: true,
+      items: result,
+    });
+  } catch (err) {
+    console.error("Failed to get recommendations:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Failed to fetch recommendations",
+    });
+  }
+}
+
+export async function getRecommendationsPreviewHandler(
   req: Request,
-  res: Response,
-  next: NextFunction
+  res: Response
 ) {
   try {
     const sessionId =
-      typeof req.query.sessionId === "string" ? req.query.sessionId : undefined;
+      (req.query.sessionId as string | undefined) ??
+      (req.query.session_id as string | undefined) ??
+      null;
 
-    const currentProductId =
-      typeof req.query.currentProductId === "string"
-        ? Number(req.query.currentProductId)
-        : undefined;
+    const currentProductIdParam = req.query.currentProductId as
+      | string
+      | undefined;
+    const currentProductId = currentProductIdParam
+      ? Number.parseInt(currentProductIdParam, 10)
+      : null;
 
-    const limit =
-      typeof req.query.limit === "string"
-        ? Number(req.query.limit)
-        : undefined;
+    const limitParam = req.query.limit as string | undefined;
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : 8;
 
-    const items = await getRecommendations({
+    const result = await getRecommendationsWithDebug({
       sessionId,
       currentProductId,
       limit,
     });
 
     res.json({
-      items,
-      meta: {
-        sessionId: sessionId ?? null,
-        currentProductId: currentProductId ?? null,
-        limit: limit ?? 8,
-      },
+      ok: true,
+      ...result,
     });
   } catch (err) {
-    next(err);
+    console.error("Failed to get recommendations preview:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Failed to fetch recommendations preview",
+    });
   }
 }

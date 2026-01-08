@@ -1,36 +1,64 @@
-import { Request, Response, NextFunction } from "express";
-import { getRecommendations } from "../services/recommendationEngine.js";
-// ...ev. övriga imports
+// backend/src/controllers/adminController.ts
+import type { Request, Response } from "express";
+import pool from "../db/pool.js";
 
-// ...befintliga admin-handlers (events, products etc.)
-
-export async function getRecommendationsPreviewHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
+/**
+ * Enkelt admin-endpoint för produkter.
+ */
+export async function getAdminProductsHandler(req: Request, res: Response) {
   try {
-    const sessionId =
-      typeof req.query.sessionId === "string" ? req.query.sessionId : undefined;
-    const currentProductId =
-      typeof req.query.currentProductId === "string"
-        ? Number(req.query.currentProductId)
-        : undefined;
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        sku,
+        name,
+        category,
+        image_url
+      FROM products
+      ORDER BY id ASC
+      LIMIT 200
+      `
+    );
 
-    const items = await getRecommendations({
-      sessionId,
-      currentProductId,
-      limit: 8,
-    });
-
-    res.json({
-      items,
-      meta: {
-        sessionId: sessionId ?? null,
-        currentProductId: currentProductId ?? null,
-      },
-    });
+    res.json(result.rows);
   } catch (err) {
-    next(err);
+    console.error("Failed to load admin products:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Failed to load admin products",
+    });
+  }
+}
+
+/**
+ * Admin-endpoint för event-logg med join mot products.
+ */
+export async function getAdminEventsHandler(req: Request, res: Response) {
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        e.id,
+        e.session_id,
+        e.event_type,
+        e.created_at,
+        p.sku        AS product_sku,
+        p.name       AS product_name
+      FROM events e
+      LEFT JOIN products p
+        ON p.id = e.product_id
+      ORDER BY e.created_at DESC
+      LIMIT 200
+      `
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Failed to load admin events:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Failed to load admin events",
+    });
   }
 }
