@@ -1,9 +1,17 @@
 import type { Request, Response } from "express";
 import {
-  getRecommendations,
   getRecommendationsWithDebug,
 } from "../services/recommendationEngine.js";
 
+/**
+ * /recommendations – används av storefront
+ * Returnerar:
+ * {
+ *   ok: true,
+ *   items: [...],
+ *   meta: { sessionId, currentProductId, limit }
+ * }
+ */
 export async function getRecommendationsHandler(req: Request, res: Response) {
   try {
     const sessionId =
@@ -11,37 +19,10 @@ export async function getRecommendationsHandler(req: Request, res: Response) {
       (req.query.session_id as string | undefined) ??
       null;
 
-    const limitParam = req.query.limit as string | undefined;
-    const limit = limitParam ? Number.parseInt(limitParam, 10) : 8;
+    const currentProductIdParam =
+      (req.query.currentProductId as string | undefined) ??
+      (req.query.current_product_id as string | undefined);
 
-    const result = await getRecommendations({ sessionId, limit });
-
-    res.json({
-      ok: true,
-      items: result,
-    });
-  } catch (err) {
-    console.error("Failed to get recommendations:", err);
-    res.status(500).json({
-      ok: false,
-      error: "Failed to fetch recommendations",
-    });
-  }
-}
-
-export async function getRecommendationsPreviewHandler(
-  req: Request,
-  res: Response
-) {
-  try {
-    const sessionId =
-      (req.query.sessionId as string | undefined) ??
-      (req.query.session_id as string | undefined) ??
-      null;
-
-    const currentProductIdParam = req.query.currentProductId as
-      | string
-      | undefined;
     const currentProductId = currentProductIdParam
       ? Number.parseInt(currentProductIdParam, 10)
       : null;
@@ -57,7 +38,62 @@ export async function getRecommendationsPreviewHandler(
 
     res.json({
       ok: true,
-      ...result,
+      items: result.items,
+      meta: {
+        sessionId,
+        currentProductId,
+        limit,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to get recommendations:", err);
+    res.status(500).json({
+      ok: false,
+      error: "Failed to fetch recommendations",
+    });
+  }
+}
+
+/**
+ * /admin/recommendations/preview – används av adminpanelen
+ * Returnerar:
+ * {
+ *   ok: true,
+ *   items: [...],
+ *   debug: { strategy, sessionId, currentProductId, limit }
+ * }
+ */
+export async function getRecommendationsPreviewHandler(
+  req: Request,
+  res: Response
+) {
+  try {
+    const sessionId =
+      (req.query.sessionId as string | undefined) ??
+      (req.query.session_id as string | undefined) ??
+      null;
+
+    const currentProductIdParam =
+      (req.query.currentProductId as string | undefined) ??
+      (req.query.current_product_id as string | undefined);
+
+    const currentProductId = currentProductIdParam
+      ? Number.parseInt(currentProductIdParam, 10)
+      : null;
+
+    const limitParam = req.query.limit as string | undefined;
+    const limit = limitParam ? Number.parseInt(limitParam, 10) : 8;
+
+    const result = await getRecommendationsWithDebug({
+      sessionId,
+      currentProductId,
+      limit,
+    });
+
+    res.json({
+      ok: true,
+      items: result.items,
+      debug: result.debug,
     });
   } catch (err) {
     console.error("Failed to get recommendations preview:", err);

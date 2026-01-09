@@ -14,6 +14,15 @@ export interface RecommendedProduct {
   imageUrl: string | null;
 }
 
+// Intern typ för raden från databasen
+interface ProductRow {
+  id: number;
+  sku: string;
+  name: string;
+  category: string | null;
+  image_url: string | null;
+}
+
 /**
  * Enkel regel:
  * - Hämta “trending” produkter baserat på antal events.
@@ -24,7 +33,7 @@ export async function getRecommendations(
 ): Promise<RecommendedProduct[]> {
   const limit = input.limit ?? 8;
 
-  const result = await pool.query(
+  const result = await pool.query<ProductRow>(
     `
     SELECT
       p.id,
@@ -35,7 +44,7 @@ export async function getRecommendations(
     FROM products p
     LEFT JOIN events e
       ON e.product_id = p.id
-    GROUP BY p.id
+    GROUP BY p.id, p.sku, p.name, p.category, p.image_url
     ORDER BY COUNT(e.id) DESC, p.id ASC
     LIMIT $1
     `,
@@ -63,6 +72,7 @@ export interface RecommendationsDebugResult {
 
 /**
  * Samma som ovan, men med enkel debug-info.
+ * Används av admin-preview.
  */
 export async function getRecommendationsWithDebug(
   input: RecommendationInput
