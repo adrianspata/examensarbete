@@ -1,96 +1,111 @@
 // backend/src/utils/validate.ts
-export type EventType = "product_view" | "product_click" | "add_to_cart";
+import { badRequest } from "./errors.js";
+import type { EventType } from "../models/eventModel.js";
 
-export interface SanitizedEventPayload {
+export function requireString(
+  value: unknown,
+  field: string
+): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw badRequest(`Field "${field}" must be a non-empty string`);
+  }
+  return value.trim();
+}
+
+export function optionalString(
+  value: unknown,
+  field: string
+): string | null {
+  if (value == null) return null;
+  if (typeof value !== "string") {
+    throw badRequest(`Field "${field}" must be a string or null`);
+  }
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+export function requireNumber(
+  value: unknown,
+  field: string
+): number {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    throw badRequest(`Field "${field}" must be a valid number`);
+  }
+  return value;
+}
+
+export function requirePositiveInt(
+  value: unknown,
+  field: string
+): number {
+  const n = requireNumber(value, field);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw badRequest(`Field "${field}" must be a positive integer`);
+  }
+  return n;
+}
+
+export function requireEnum<T extends string>(
+  value: unknown,
+  field: string,
+  allowed: readonly T[]
+): T {
+  if (typeof value !== "string") {
+    throw badRequest(
+      `Field "${field}" must be one of: ${allowed.join(", ")}`
+    );
+  }
+  if (!allowed.includes(value as T)) {
+    throw badRequest(
+      `Field "${field}" must be one of: ${allowed.join(", ")}`
+    );
+  }
+  return value as T;
+}
+
+const ALLOWED_EVENT_TYPES: EventType[] = ["view", "click", "add_to_cart"];
+
+export interface RawEventPayload {
+  sessionId?: unknown;
+  productId?: unknown;
+  eventType?: unknown;
+  userId?: unknown;
+  metadata?: unknown;
+}
+
+export interface ValidEventPayload {
   sessionId: string;
   productId: number;
   eventType: EventType;
-  userId?: string | null;
+  userId: string | null;
+  metadata: Record<string, unknown> | null;
 }
 
-/**
- * Enklare helper för att kolla tomma strängar/null/undefined.
- */
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
-/**
- * Tillåtna event-typer i systemet.
- */
-const ALLOWED_EVENT_TYPES: EventType[] = [
-  "product_view",
-  "product_click",
-  "add_to_cart",
-];
-
-/**
- * Säkerställ att eventType är en av de tillåtna typerna.
- */
-function normalizeEventType(value: unknown): EventType {
-  if (!isNonEmptyString(value)) {
-    throw new Error("eventType is required and must be a non-empty string");
+export function validateEventPayload(
+  body: unknown
+): ValidEventPayload {
+  if (body == null || typeof body !== "object") {
+    throw badRequest("Request body must be a JSON object");
   }
 
-  const lower = value.toLowerCase() as EventType;
-  if (!ALLOWED_EVENT_TYPES.includes(lower)) {
-    throw new Error(
-      `eventType must be one of: ${ALLOWED_EVENT_TYPES.join(", ")}`
-    );
-  }
+  const raw = body as RawEventPayload;
 
-  return lower;
-}
+  const sessionId = requireString(raw.sessionId, "sessionId");
+  const productId = requirePositiveInt(raw.productId, "productId");
+  const eventType = requireEnum<EventType>(
+    raw.eventType,
+    "eventType",
+    ALLOWED_EVENT_TYPES
+  );
 
-/**
- * Försök parsa ett produkt-id till ett positivt heltal.
- */
-function normalizeProductId(value: unknown): number {
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
-    return value;
-  }
+  const userId = optionalString(raw.userId, "userId");
 
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number.parseInt(value, 10);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      return parsed;
+  let metadata: Record<string, unknown> | null = null;
+  if (raw.metadata != null) {
+    if (typeof raw.metadata !== "object" || Array.isArray(raw.metadata)) {
+      throw badRequest('Field "metadata" must be an object if provided');
     }
-  }
-
-  throw new Error("productId must be a positive integer");
-}
-
-/**
- * Sanerar och validerar inkommande event-payload från req.body.
- *
- * - Säkerställer att sessionId är en icke-tom sträng
- * - Säkerställer att productId är ett positivt heltal
- * - Säkerställer att eventType är en tillåten typ
- * - userId är valfri, men om den skickas måste den vara en icke-tom sträng
- */
-export function sanitizeEventPayload(body: unknown): SanitizedEventPayload {
-  if (body === null || typeof body !== "object") {
-    throw new Error("Body must be a JSON object");
-  }
-
-  const raw = body as Record<string, unknown>;
-
-  const sessionIdRaw = raw.sessionId ?? raw.session_id;
-  if (!isNonEmptyString(sessionIdRaw)) {
-    throw new Error("sessionId is required and must be a non-empty string");
-  }
-  const sessionId = sessionIdRaw.trim();
-
-  const productId = normalizeProductId(raw.productId ?? raw.product_id);
-
-  const eventType = normalizeEventType(raw.eventType ?? raw.event_type);
-
-  let userId: string | null | undefined;
-  if (raw.userId ?? raw.user_id) {
-    if (!isNonEmptyString(raw.userId ?? raw.user_id)) {
-      throw new Error("userId must be a non-empty string if provided");
-    }
-    userId = String(raw.userId ?? raw.user_id).trim();
+    metadata = raw.metadata as Record<string, unknown>;
   }
 
   return {
@@ -98,5 +113,6 @@ export function sanitizeEventPayload(body: unknown): SanitizedEventPayload {
     productId,
     eventType,
     userId,
+    metadata,
   };
 }
