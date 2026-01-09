@@ -20,18 +20,20 @@ const App: React.FC = () => {
   useEffect(() => {
     let isMounted = true;
 
+    setHealth(null);
+    setHealthError(null);
+
     fetchHealth()
       .then((data) => {
         if (!isMounted) return;
-        // förväntar oss t.ex. { ok: true, message?: string }
-        setHealth(typeof data === "object" && data !== null ? data : null);
+        setHealth(data);
         setHealthError(null);
       })
       .catch((err) => {
         if (!isMounted) return;
         setHealth(null);
         setHealthError(
-          err instanceof Error ? err.message : "Okänt fel mot backend"
+          err instanceof Error ? err.message : "Unknown error from backend"
         );
       });
 
@@ -40,99 +42,108 @@ const App: React.FC = () => {
     };
   }, []);
 
-  let healthLabel: string;
-  let healthClass = "admin-health";
+  let healthLabel = "Checking backend…";
+  let healthClass = "admin-health admin-health--loading";
 
   if (healthError) {
-    healthLabel = "Backend-fel";
-    healthClass += " admin-health--error";
-  } else if (!health) {
-    healthLabel = "Kontrollerar backend…";
-    healthClass += " admin-health--loading";
-  } else if (health.ok) {
+    healthLabel = "Backend error";
+    healthClass = "admin-health admin-health--error";
+  } else if (health && health.ok) {
     healthLabel = "Backend: OK";
-    healthClass += " admin-health--ok";
-  } else {
-    healthLabel = "Backend: problem";
-    healthClass += " admin-health--error";
+    healthClass = "admin-health admin-health--ok";
+  } else if (health && !health.ok) {
+    healthLabel = "Backend: issues";
+    healthClass = "admin-health admin-health--error";
   }
+
+  const tabLabel =
+    activeTab === "products"
+      ? "Products"
+      : activeTab === "events"
+      ? "Events"
+      : "Recommendations";
+
 
   return (
     <div className="admin-root">
-      <header className="admin-header">
-        <div className="admin-header-main">
+      {/* SIDEBAR */}
+      <aside className="admin-sidebar">
+        <div className="admin-sidebar-brand">
           <div>
-            <h1 className="admin-title">Admin dashboard</h1>
-            <p className="admin-subtitle">
-              Kontrollpanel för produkter, events och
-              rekommendationer.
-            </p>
+            <div className="admin-brand-name">PPFE Admin</div>
+            <div className="admin-brand-sub">Personalised Product Feed Engine</div>
           </div>
         </div>
 
-        <div className="admin-header-meta">
-          <span className={healthClass}>
-            {healthLabel}
-            {health && health.message && (
-              <span className="admin-health-message"> – {health.message}</span>
-            )}
-            {healthError && (
-              <span className="admin-health-message">
-                {" "}
-                – {healthError}
-              </span>
-            )}
-          </span>
-        </div>
-      </header>
+        <nav className="admin-nav">
+          <p className="admin-sidebar-section">Menu</p>
+          <button
+            type="button"
+            className={
+              "admin-nav-item" +
+              (activeTab === "products" ? " admin-nav-item--active" : "")
+            }
+            onClick={() => setActiveTab("products")}
+          >
+            <span className="admin-nav-label">Products</span>
+          </button>
+          <button
+            type="button"
+            className={
+              "admin-nav-item" +
+              (activeTab === "events" ? " admin-nav-item--active" : "")
+            }
+            onClick={() => setActiveTab("events")}
+          >
+            <span className="admin-nav-label">Events</span>
+          </button>
+          <button
+            type="button"
+            className={
+              "admin-nav-item" +
+              (activeTab === "recommendations"
+                ? " admin-nav-item--active"
+                : "")
+            }
+            onClick={() => setActiveTab("recommendations")}
+          >
+            <span className="admin-nav-label">Recommendations</span>
+          </button>
+        </nav>
 
+        <div className="admin-sidebar-footer">
+          <span className={healthClass}>{healthLabel}</span>
+          {health && health.message && (
+            <span className="admin-health-message">{health.message}</span>
+          )}
+          {healthError && (
+            <span className="admin-health-message">{healthError}</span>
+          )}
+        </div>
+      </aside>
+
+      {/* MAIN AREA */}
       <div className="admin-shell">
-        <aside className="admin-sidebar">
-          <p className="admin-sidebar-title">Views</p>
-          <nav className="admin-nav">
-            <button
-              type="button"
-              className={
-                "admin-nav-item" +
-                (activeTab === "products" ? " admin-nav-item--active" : "")
-              }
-              onClick={() => setActiveTab("products")}
-            >
-              <span>Products</span>
-            </button>
-            <button
-              type="button"
-              className={
-                "admin-nav-item" +
-                (activeTab === "events" ? " admin-nav-item--active" : "")
-              }
-              onClick={() => setActiveTab("events")}
-            >
-              <span>Events</span>
-            </button>
-            <button
-              type="button"
-              className={
-                "admin-nav-item" +
-                (activeTab === "recommendations"
-                  ? " admin-nav-item--active"
-                  : "")
-              }
-              onClick={() => setActiveTab("recommendations")}
-            >
-              <span>Recommendations</span>
-            </button>
-          </nav>
-        </aside>
+        <header className="admin-header">
+          <div>
+            <div className="admin-breadcrumb">Dashboard / {tabLabel}</div>
+            <h1 className="admin-title">Personalised Product Feed Engine</h1>
+            <p className="admin-subtitle">
+              Control panel for inspecting products, events and recommendations.
+            </p>
+          </div>
+        </header>
 
         <main className="admin-main">
           {activeTab === "products" && (
             <section className="panel">
               <div className="panel-header">
-                <h2 className="panel-title">Products</h2>
-                <p className="panel-subtitle">
-                  Aktuell produktkatalog hämtad från <code>/products</code>.
-                </p>
+                <div>
+                  <h2 className="panel-title">Products</h2>
+                  <p className="panel-subtitle">
+                    Live product catalog from /products.
+                  </p>
+                </div>
               </div>
               <div className="panel-body">
                 <ProductsTable />
@@ -143,10 +154,12 @@ const App: React.FC = () => {
           {activeTab === "events" && (
             <section className="panel">
               <div className="panel-header">
-                <h2 className="panel-title">Events</h2>
-                <p className="panel-subtitle">
-                  Senaste interaktioner från test-storefront.
-                </p>
+                <div>
+                  <h2 className="panel-title">Events</h2>
+                  <p className="panel-subtitle">
+                    Interactions coming from the test storefront.
+                  </p>
+                </div>
               </div>
               <div className="panel-body">
                 <EventsTable />
@@ -157,10 +170,13 @@ const App: React.FC = () => {
           {activeTab === "recommendations" && (
             <section className="panel">
               <div className="panel-header">
-                <h2 className="panel-title">Recommendations</h2>
-                <p className="panel-subtitle">
-                  Testa den regelbaserade motorn mot olika sessioner.
-                </p>
+                <div>
+                  <h2 className="panel-title">Recommendations</h2>
+                  <p className="panel-subtitle">
+                    Run the rule-based engine against different sessions and
+                    contexts.
+                  </p>
+                </div>
               </div>
               <div className="panel-body">
                 <RecommendationsDebug />

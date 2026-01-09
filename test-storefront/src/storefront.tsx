@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { listProducts, sendEvent, getRecommendations } from "./api";
-import type { Product } from "./api";
+import {
+  listProducts,
+  sendEvent,
+  getRecommendations,
+  type Product,
+  type EventPayload,
+} from "./api";
 
 function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "demo-session";
@@ -65,8 +70,17 @@ export default function Storefront() {
   async function handleProductClick(product: Product) {
     if (!sessionId) return;
 
-    // skicka click-event
-    void sendEvent(sessionId, product.id, "click");
+    const payload: EventPayload = {
+      sessionId,
+      productId: product.id,
+      eventType: "click",
+      metadata: {
+        source: "test-storefront",
+      },
+    };
+
+    // skicka click-event (utan att blockera UI:t)
+    void sendEvent(payload);
 
     // uppdatera rekommendationer baserat på den klickade produkten
     setLoadingReco(true);
@@ -124,7 +138,9 @@ export default function Storefront() {
             onClick={handleReload}
             disabled={loadingProducts}
           >
-            {loadingProducts ? "Uppdaterar..." : "Ladda om produkter & rekommendationer"}
+            {loadingProducts
+              ? "Uppdaterar..."
+              : "Ladda om produkter & rekommendationer"}
           </button>
           {sessionId && (
             <span className="storefront-session">
@@ -201,7 +217,9 @@ export default function Storefront() {
           <h2 className="storefront-section-title">Rekommenderat för dig</h2>
 
           {loadingReco && (
-            <div className="storefront-state">Beräknar rekommendationer...</div>
+            <div className="storefront-state">
+              Beräknar rekommendationer...
+            </div>
           )}
 
           {!loadingReco && recommended.length === 0 && (

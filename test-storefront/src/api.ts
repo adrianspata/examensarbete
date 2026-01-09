@@ -42,19 +42,11 @@ export async function listProducts(): Promise<Product[]> {
     return raw as Product[];
   }
 
-  if (
-    raw &&
-    typeof raw === "object" &&
-    Array.isArray((raw as any).items)
-  ) {
+  if (raw && typeof raw === "object" && Array.isArray((raw as any).items)) {
     return (raw as any).items as Product[];
   }
 
-  if (
-    raw &&
-    typeof raw === "object" &&
-    Array.isArray((raw as any).products)
-  ) {
+  if (raw && typeof raw === "object" && Array.isArray((raw as any).products)) {
     return (raw as any).products as Product[];
   }
 
@@ -62,35 +54,40 @@ export async function listProducts(): Promise<Product[]> {
   return [];
 }
 
+/* ---------- Events ---------- */
+
+export type EventType = "view" | "click" | "add_to_cart";
+
+export interface EventPayload {
+  sessionId: string;
+  productId: number;
+  eventType: EventType;
+  userId?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
 /**
  * Skicka event till backend.
  * Används när användaren interagerar med en produkt i storefront.
  */
-export async function sendEvent(
-  sessionId: string,
-  productId: number,
-  eventType: "view" | "click" | "add_to_cart"
-): Promise<void> {
+export async function sendEvent(payload: EventPayload): Promise<void> {
   const res = await fetch(`${BASE_URL}/events`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      sessionId,
-      productId,
-      eventType,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
-    // vi loggar bara – UI:n behöver inte krascha
     const text = await res.text().catch(() => "");
     console.error(
       `Failed to send event: ${res.status} ${res.statusText} ${text}`
     );
   }
 }
+
+/* ---------- Recommendations ---------- */
 
 /**
  * Hämta rekommendationer från backend för en given session,

@@ -11,36 +11,19 @@ async function handleJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
-/**
- * Health-check – App.tsx förväntar sig en *string*.
- * Vi mappar vad backend än skickar till en läsbar text.
- */
-export async function fetchHealth(): Promise<string> {
-  const res = await fetch(`${API_BASE}/health`);
+/* Health */
 
-  try {
-    const data = await res.json();
-
-    if (data && typeof data === "object") {
-      const anyData = data as any;
-
-      if (typeof anyData.message === "string") {
-        return anyData.message; // t.ex. "OK"
-      }
-      if (typeof anyData.status === "string") {
-        return anyData.status; // t.ex. "healthy"
-      }
-    }
-
-    // fallback om det inte finns vettiga fält
-    return res.ok ? "OK" : `Status ${res.status}`;
-  } catch {
-    // Om JSON-parse failar, använd bara status
-    return res.ok ? "OK" : `Status ${res.status}`;
-  }
+export interface HealthResponse {
+  ok: boolean;
+  message?: string;
 }
 
-/* ---------- Products ---------- */
+export async function fetchHealth(): Promise<HealthResponse> {
+  const res = await fetch(`${API_BASE}/health`);
+  return handleJson<HealthResponse>(res);
+}
+
+/* Products */
 
 export interface Product {
   id: number;
@@ -56,7 +39,7 @@ export async function listProducts(): Promise<Product[]> {
   return handleJson<Product[]>(res);
 }
 
-/* ---------- Events ---------- */
+/* Events */
 
 export interface EventRow {
   id: number;
@@ -72,7 +55,7 @@ export async function listEvents(): Promise<EventRow[]> {
   return handleJson<EventRow[]>(res);
 }
 
-/* ---------- Recommendations preview ---------- */
+/* Recommendations preview */
 
 export interface RecommendationsPreviewItem extends Product {}
 
