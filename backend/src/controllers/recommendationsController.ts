@@ -9,7 +9,13 @@ import {
  * {
  *   ok: true,
  *   items: [...],
- *   meta: { sessionId, currentProductId, limit }
+ *   meta: {
+ *     sessionId,
+ *     currentProductId,
+ *     limit,
+ *     strategy,
+ *     categoriesUsed: string[]
+ *   }
  * }
  */
 export async function getRecommendationsHandler(req: Request, res: Response) {
@@ -36,6 +42,9 @@ export async function getRecommendationsHandler(req: Request, res: Response) {
       limit,
     });
 
+    const strategy = result.debug?.strategy ?? "unknown";
+    const categoriesUsed = result.debug?.categoriesUsed ?? [];
+
     res.json({
       ok: true,
       items: result.items,
@@ -43,6 +52,8 @@ export async function getRecommendationsHandler(req: Request, res: Response) {
         sessionId,
         currentProductId,
         limit,
+        strategy,
+        categoriesUsed,
       },
     });
   } catch (err) {
@@ -60,7 +71,13 @@ export async function getRecommendationsHandler(req: Request, res: Response) {
  * {
  *   ok: true,
  *   items: [...],
- *   debug: { strategy, sessionId, currentProductId, limit }
+ *   debug: {
+ *     strategy,
+ *     sessionId,
+ *     currentProductId,
+ *     limit,
+ *     categoriesUsed: string[]
+ *   }
  * }
  */
 export async function getRecommendationsPreviewHandler(
