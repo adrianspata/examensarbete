@@ -64,6 +64,7 @@ export interface RecommendationsPreviewDebug {
   sessionId: string | null;
   currentProductId: number | null;
   limit: number;
+  categoriesUsed: string[];
 }
 
 export interface RecommendationsPreviewResponse {

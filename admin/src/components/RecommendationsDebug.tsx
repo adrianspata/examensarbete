@@ -26,10 +26,11 @@ const RecommendationsDebug: React.FC = () => {
         limit: 8,
       });
 
+      // Om API:t någon gång skulle returnera ok: false med 200-status:
       if (!result.ok) {
-        setError(result as unknown as string);
         setItems([]);
         setDebug(null);
+        setError("Preview request was not ok");
         return;
       }
 
@@ -115,6 +116,12 @@ const RecommendationsDebug: React.FC = () => {
             </li>
             <li>
               <strong>Limit:</strong> {debug.limit}
+            </li>
+            <li>
+              <strong>Categories used:</strong>{" "}
+              {debug.categoriesUsed && debug.categoriesUsed.length > 0
+                ? debug.categoriesUsed.join(", ")
+                : "–"}
             </li>
           </ul>
         </div>
