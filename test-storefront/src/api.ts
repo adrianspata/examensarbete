@@ -10,13 +10,17 @@ export interface Product {
   created_at: string;
 }
 
-interface RecommendationsMeta {
+/* ---------- Recommendations ---------- */
+
+export interface RecommendationsMeta {
   sessionId: string | null;
   currentProductId: number | null;
-  limit?: number;
+  limit: number;
+  strategy: string;
+  categoriesUsed: string[];
 }
 
-interface RecommendationsResponse {
+export interface RecommendationsResponse {
   items: Product[];
   meta: RecommendationsMeta;
 }
@@ -87,17 +91,17 @@ export async function sendEvent(payload: EventPayload): Promise<void> {
   }
 }
 
-/* ---------- Recommendations ---------- */
-
 /**
  * Hämta rekommendationer från backend för en given session,
  * valfritt med currentProductId.
+ *
+ * Returnerar nu både items + meta (inkl. strategy + categoriesUsed).
  */
 export async function getRecommendations(params: {
   sessionId: string;
   currentProductId?: number;
   limit?: number;
-}): Promise<Product[]> {
+}): Promise<RecommendationsResponse> {
   const search = new URLSearchParams();
   search.set("sessionId", params.sessionId);
 
@@ -112,5 +116,5 @@ export async function getRecommendations(params: {
   const res = await fetch(url);
   const data = await handleResponse<RecommendationsResponse>(res);
 
-  return data.items;
+  return data;
 }

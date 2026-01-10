@@ -46,7 +46,7 @@ export default function Storefront() {
         // direkt första rekommendationer baserat på sessionen
         setLoadingReco(true);
         try {
-          const recos = await getRecommendations({
+          const { items: recos } = await getRecommendations({
             sessionId: sid,
             limit: 8,
           });
@@ -85,7 +85,7 @@ export default function Storefront() {
     // uppdatera rekommendationer baserat på den klickade produkten
     setLoadingReco(true);
     try {
-      const recos = await getRecommendations({
+      const { items: recos } = await getRecommendations({
         sessionId,
         currentProductId: product.id,
         limit: 8,
@@ -108,7 +108,7 @@ export default function Storefront() {
       setProducts(items);
 
       setLoadingReco(true);
-      const recos = await getRecommendations({
+      const { items: recos } = await getRecommendations({
         sessionId,
         limit: 8,
       });
@@ -204,7 +204,7 @@ export default function Storefront() {
                         void handleProductClick(product);
                       }}
                     >
-                      Visa / klicka (logga event)
+                      Klicka (logga event)
                     </button>
                   </div>
                 </article>
