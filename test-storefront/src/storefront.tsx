@@ -43,7 +43,32 @@ export default function Storefront() {
         const items = await listProducts();
         setProducts(items);
 
-        // direkt första rekommendationer baserat på sessionen
+        // Skicka view-events för de första produkterna som visas (view)
+        // endast en gång per session (undvika dubletter)
+        if (typeof window !== "undefined") {
+          const storageKey = `ppfe_initial_views_sent_${sid}`;
+          const alreadySent = window.localStorage.getItem(storageKey);
+
+          if (!alreadySent) {
+            const viewed = items.slice(0, 8);
+            viewed.forEach((product) => {
+              const payload: EventPayload = {
+                sessionId: sid,
+                productId: product.id,
+                eventType: "view",
+                metadata: {
+                  source: "test-storefront",
+                  kind: "initial_view",
+                },
+              };
+              void sendEvent(payload);
+            });
+
+            window.localStorage.setItem(storageKey, "1");
+          }
+        }
+
+        // Direkt första rekommendationer baserat på sessionen
         setLoadingReco(true);
         try {
           const { items: recos } = await getRecommendations({
@@ -79,10 +104,42 @@ export default function Storefront() {
       },
     };
 
-    // skicka click-event (utan att blockera UI:t)
+    // skicka click-event
     void sendEvent(payload);
 
-    // uppdatera rekommendationer baserat på den klickade produkten
+    // uppdatera rekommendationer baserat på produkt klick
+    setLoadingReco(true);
+    try {
+      const { items: recos } = await getRecommendations({
+        sessionId,
+        currentProductId: product.id,
+        limit: 8,
+      });
+      setRecommended(recos);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingReco(false);
+    }
+  }
+
+  async function handleAddToCart(product: Product) {
+    if (!sessionId) return;
+
+    const payload: EventPayload = {
+      sessionId,
+      productId: product.id,
+      eventType: "add_to_cart",
+      metadata: {
+        source: "test-storefront",
+        action: "add_to_cart",
+      },
+    };
+
+    // skicka add to cart event
+    void sendEvent(payload);
+
+    // uppdatera rekommendationer baserat på produkten
     setLoadingReco(true);
     try {
       const { items: recos } = await getRecommendations({
@@ -204,7 +261,18 @@ export default function Storefront() {
                         void handleProductClick(product);
                       }}
                     >
-                      Klicka (logga event)
+                      Click (event)
+                    </button>
+
+                    <button
+                      type="button"
+                      className="product-button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleAddToCart(product);
+                      }}
+                    >
+                      Add to cart (event)
                     </button>
                   </div>
                 </article>
