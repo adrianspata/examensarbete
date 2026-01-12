@@ -1,22 +1,23 @@
 import pool from "../db/pool.js";
 
 /**
- * Recommendation engine – current behaviour (v1)
+ * Recommendation engine – current behaviour
  *
- * - Uses recent events for a given session (and/​or currentProductId)
+ * - Uses recent events for a given session (and/or currentProductId)
  *   to infer one or more “interest categories”.
+ * - Weights event types differently:
+ *   - view         = low
+ *   - click        = strong
+ *   - add_to_cart  = strongest 
+ * - Applies a simple recency bonus for the most recent events.
  * - Picks products from those categories when möjligt.
- * - Falls back to a simple “trending” list (flest events) så att
- *   det alltid finns något att visa.
- *
- * Designmål för examensarbetet:
- * - Enkel att följa i kod.
- * - Transparens via admin-debug (man kan se strategy + categoriesUsed).
+ * - Falls back to a “trending weighted” list (flest och “tyngst”
+ *   interaktioner) så att det alltid finns något att visa.
  *
  * TODO – möjliga förbättringar:
- * - Viktning av kategorier utifrån recency och frequency.
+ * - Tunables för viktning (t.ex. göra add_to_cart ännu tyngre, eller
+ *   justera recency-bonusen).
  * - Begränsa analysen till ett tidsfönster (t.ex. senaste 7 dagarna).
- * - Ta hänsyn till typ av event (view/click/add_to_cart) med olika vikt.
  * - Undvika att rekommendera exakt samma produkt för ofta i rad.
  */
 
@@ -47,7 +48,9 @@ interface EventRow {
   category: string | null;
 }
 
-type RecommendationStrategy = "trending_only" | "category_and_trending";
+type RecommendationStrategy =
+  | "trending_weighted"
+  | "category_and_trending_weighted";
 
 interface RecommendationInternalResult {
   items: RecommendedProduct[];
@@ -55,9 +58,7 @@ interface RecommendationInternalResult {
   strategy: RecommendationStrategy;
 }
 
-/**
- * Hämta kategori för en specifik produkt (t.ex. currentProductId).
- */
+// Hämta kategori för en specifik produkt
 async function fetchProductCategory(
   productId: number
 ): Promise<string | null> {
@@ -70,11 +71,7 @@ async function fetchProductCategory(
   return res.rows[0].category;
 }
 
-/**
- * Bygg category-scores från sessionens senaste events.
- * - Vi tittar bara på de SENASTE 20 events.
- * - Klick väger mer än view, add_to_cart väger mest.
- */
+// Bygg category-scores från sessionens senaste events.
 async function fetchSessionCategoryScores(
   sessionId: string
 ): Promise<Map<string, number>> {
@@ -99,12 +96,12 @@ async function fetchSessionCategoryScores(
   res.rows.forEach((row, index) => {
     if (!row.category) return;
 
-    // Basvikt per eventtyp
+    // Vikt per event-typ
     let base = 1; // view
     if (row.event_type === "click") base = 5;
     if (row.event_type === "add_to_cart") base = 8;
 
-    // Enkel recency – de allra senaste får en liten bonus
+    // Enkel recency
     const recencyBonus = Math.max(0, 10 - index); // index 0–19
 
     const prev = scores.get(row.category) ?? 0;
@@ -114,16 +111,13 @@ async function fetchSessionCategoryScores(
   return scores;
 }
 
-/**
- * Huvudlogik för att ta fram rekommendationer.
- */
+// Huvudlogik för att ta fram rekommendationer.
 async function computeRecommendations(
   input: RecommendationInput
 ): Promise<RecommendationInternalResult> {
   const limit = input.limit ?? 8;
 
   let categoriesUsed: string[] = [];
-  let strategy: RecommendationStrategy = "trending_only";
 
   // 1) Utgå från currentProductId om den finns
   if (input.currentProductId != null) {
@@ -133,119 +127,86 @@ async function computeRecommendations(
     }
   }
 
-  // Heuristic för kategori-intresse:
-// - Räknar hur ofta varje kategori förekommer i event-historiken.
-// - Sorterar på count, tar de N vanligaste (t.ex. 2–3 st).
-//
-// Begränsningar i v1:
-// - Ingen tidsviktning (ett klick för 30 dagar sedan väger lika tungt
-//   som ett klick nyss).
-// - Ingen skillnad mellan view/click/add_to_cart.
-//
-// TODO (framtida förbättring):
-// - Ge olika poäng per event-typ (add_to_cart > click > view).
-// - Låt nyare events väga tyngre än äldre.
-// - Lägg in minsta tröskel (t.ex. kräver minst X events innan
-//   kategorin räknas som “aktivt intresse”).
-
-
-  // 2) Fyll på med topp-kategorier från sessionens senaste events (om vi har sessionId)
+  // 2) Fyll på med topp-kategorier från sessionens senaste events
   if (input.sessionId) {
     const scores = await fetchSessionCategoryScores(input.sessionId);
 
-    // om vi redan har en kategori från currentProductId – exkludera den från topp-listan
     const primaryCategory = categoriesUsed[0] ?? null;
 
     const extraCategories = Array.from(scores.entries())
       .filter(([cat]) => cat !== primaryCategory)
-      .sort((a, b) => b[1] - a[1]) // högst score först
-      .slice(0, primaryCategory ? 1 : 2) // max totalt 2 kategorier
+      .sort((a, b) => b[1] - a[1]) 
+      .slice(0, primaryCategory ? 1 : 2) 
       .map(([cat]) => cat);
 
     categoriesUsed = [...categoriesUsed, ...extraCategories];
   }
 
-  if (categoriesUsed.length > 0) {
-    strategy = "category_and_trending";
-  }
+  const strategy: RecommendationStrategy =
+    categoriesUsed.length > 0
+      ? "category_and_trending_weighted"
+      : "trending_weighted";
 
-  // 3) Hämta produkter inom valda kategorier, eller global trending som fallback
-  let productsRes;
-  if (categoriesUsed.length > 0) {
-    productsRes = await pool.query<ProductRow>(
-      `
-      SELECT
-        p.id,
-        p.sku,
-        p.name,
-        p.category,
-        p.image_url
-      FROM products p
-      LEFT JOIN events e
-        ON e.product_id = p.id
-      WHERE p.category = ANY($1::text[])
-      GROUP BY p.id, p.sku, p.name, p.category, p.image_url
-      ORDER BY COUNT(e.id) DESC, p.id ASC
-      LIMIT $2
-      `,
-      [categoriesUsed, limit + 1] // +1 för att kunna filtrera bort currentProductId
-    );
-  } else {
-    productsRes = await pool.query<ProductRow>(
-      `
-      SELECT
-        p.id,
-        p.sku,
-        p.name,
-        p.category,
-        p.image_url
-      FROM products p
-      LEFT JOIN events e
-        ON e.product_id = p.id
-      GROUP BY p.id, p.sku, p.name, p.category, p.image_url
-      ORDER BY COUNT(e.id) DESC, p.id ASC
-      LIMIT $1
-      `,
-      [limit + 1]
-    );
-  }
+  const categoryArrayParam = categoriesUsed;
+  const currentProductId = input.currentProductId ?? null;
 
-  let items: RecommendedProduct[] = productsRes.rows.map((row) => ({
-    id: row.id,
-    sku: row.sku,
-    name: row.name,
-    category: row.category ?? null,
-    imageUrl: row.image_url ?? null,
-  }));
+  // 3) Hämta produkter med viktning per event-typ + prioritet på categories
+  const productsRes = await pool.query(
+    `
+    SELECT
+      p.id,
+      p.sku,
+      p.name,
+      p.category,
+      p.image_url,
+      COALESCE(
+        SUM(
+          CASE e.event_type
+            WHEN 'add_to_cart' THEN 3
+            WHEN 'click'        THEN 2
+            WHEN 'view'         THEN 1
+            ELSE 0
+          END
+        ),
+        0
+      ) AS engagement_score,
+      COUNT(e.id) AS event_count,
+      CASE
+        WHEN $2::text[] IS NOT NULL
+             AND array_length($2::text[], 1) > 0
+             AND p.category = ANY($2::text[])
+        THEN TRUE
+        ELSE FALSE
+      END AS in_pref_cat
+    FROM products p
+    LEFT JOIN events e
+      ON e.product_id = p.id
+    WHERE ($3::int IS NULL OR p.id <> $3::int)  -- exkludera currentProductId
+    GROUP BY p.id, p.sku, p.name, p.category, p.image_url
+    ORDER BY
+      in_pref_cat DESC,          -- först produkter i "preferred categories"
+      engagement_score DESC,     -- sedan mest engagerande (med viktade events)
+      event_count DESC,          -- sedan antal events som tiebreaker
+      p.id ASC                   -- stabil sortering
+    LIMIT $1
+    `,
+    [limit, categoryArrayParam, currentProductId]
+  );
 
-  // 4) Exkludera ev. currentProductId
-  if (input.currentProductId != null) {
-    items = items.filter((p) => p.id !== input.currentProductId);
-  }
-
-  // 5) Trunka till limit
-  if (items.length > limit) {
-    items = items.slice(0, limit);
-  }
+  const items: RecommendedProduct[] = (productsRes.rows as ProductRow[]).map(
+    (row) => ({
+      id: row.id,
+      sku: row.sku,
+      name: row.name,
+      category: row.category ?? null,
+      imageUrl: row.image_url ?? null,
+    })
+  );
 
   return { items, categoriesUsed, strategy };
 }
 
-/**
- * getRecommendations
- *
- * Core entrypoint för storefront:
- * - Tar emot sessionId + ev. currentProductId.
- * - Försöker först hitta kategori-baserade rekommendationer.
- * - Faller tillbaka till “trending” om det inte finns tillräckligt bra signaler.
- *
- * Returnerar en ren lista med RecommendedProduct som storefront kan rendera direkt.
- */
-
-
-/**
- * Publik funktion för storefront – returnerar bara produkter.
- */
+// Funktion för storefront, returnerar bara produkter
 export async function getRecommendations(
   input: RecommendationInput
 ): Promise<RecommendedProduct[]> {
@@ -264,25 +225,7 @@ export interface RecommendationsDebugResult {
   };
 }
 
-/**
- * getRecommendationsWithDebug
- *
- * - Samma logik som getRecommendations, men returnerar också ett `debug`-objekt
- *   som adminpanelen kan visa:
- *   - strategy (t.ex. "category_and_trending")
- *   - sessionId / currentProductId
- *   - limit
- *   - categoriesUsed (vilka kategorier som faktiskt användes)
- *
- * Syfte:
- * - Göra motorn “förklarbar” för en människa:
- *   man ser direkt *varför* en viss lista med produkter föreslogs.
- */
-
-
-/**
- * Admin-debug – samma logik, plus metadata.
- */
+// Admin-debug
 export async function getRecommendationsWithDebug(
   input: RecommendationInput
 ): Promise<RecommendationsDebugResult> {
