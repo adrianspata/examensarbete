@@ -1,5 +1,3 @@
-// frontend-widget/src/widget.ts
-
 export interface WidgetConfig {
   apiBaseUrl: string;          // t.ex. "http://localhost:4000"
   containerId: string;         // id på <div> där widgeten ska renderas
@@ -22,7 +20,6 @@ interface RecommendationsResponse {
   reason?: string;
 }
 
-// Hjälp: skapa element med klass
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
@@ -161,9 +158,6 @@ function renderProducts(
   container.appendChild(list);
 }
 
-/**
- * Publik init-funktion.
- */
 export async function initWidget(config: WidgetConfig): Promise<void> {
   const { apiBaseUrl, containerId, sessionId, limit } = config;
 
@@ -202,7 +196,6 @@ export async function initWidget(config: WidgetConfig): Promise<void> {
       const res = await fetchRecommendations(apiBaseUrl, sessionId, limit);
       recs = res.items;
     } catch {
-      // om rekommendationer failar → fallback till produkter
       recs = await fetchFallbackProducts(apiBaseUrl, limit);
     }
 

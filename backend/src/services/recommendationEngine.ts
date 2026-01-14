@@ -1,26 +1,5 @@
 import pool from "../db/pool.js";
 
-/**
- * Recommendation engine – current behaviour
- *
- * - Uses recent events for a given session (and/or currentProductId)
- *   to infer one or more “interest categories”.
- * - Weights event types differently:
- *   - view         = low
- *   - click        = strong
- *   - add_to_cart  = strongest 
- * - Applies a simple recency bonus for the most recent events.
- * - Picks products from those categories when möjligt.
- * - Falls back to a “trending weighted” list (flest och “tyngst”
- *   interaktioner) så att det alltid finns något att visa.
- *
- * TODO – möjliga förbättringar:
- * - Tunables för viktning (t.ex. göra add_to_cart ännu tyngre, eller
- *   justera recency-bonusen).
- * - Begränsa analysen till ett tidsfönster (t.ex. senaste 7 dagarna).
- * - Undvika att rekommendera exakt samma produkt för ofta i rad.
- */
-
 export interface RecommendationInput {
   sessionId?: string | null;
   currentProductId?: number | null;
@@ -96,12 +75,10 @@ async function fetchSessionCategoryScores(
   res.rows.forEach((row, index) => {
     if (!row.category) return;
 
-    // Vikt per event-typ
     let base = 1; // view
     if (row.event_type === "click") base = 5;
     if (row.event_type === "add_to_cart") base = 8;
 
-    // Enkel recency
     const recencyBonus = Math.max(0, 10 - index); // index 0–19
 
     const prev = scores.get(row.category) ?? 0;
@@ -111,7 +88,6 @@ async function fetchSessionCategoryScores(
   return scores;
 }
 
-// Huvudlogik för att ta fram rekommendationer.
 async function computeRecommendations(
   input: RecommendationInput
 ): Promise<RecommendationInternalResult> {
@@ -206,7 +182,6 @@ async function computeRecommendations(
   return { items, categoriesUsed, strategy };
 }
 
-// Funktion för storefront, returnerar bara produkter
 export async function getRecommendations(
   input: RecommendationInput
 ): Promise<RecommendedProduct[]> {
@@ -225,7 +200,6 @@ export interface RecommendationsDebugResult {
   };
 }
 
-// Admin-debug
 export async function getRecommendationsWithDebug(
   input: RecommendationInput
 ): Promise<RecommendationsDebugResult> {

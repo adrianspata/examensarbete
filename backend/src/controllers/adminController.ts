@@ -1,10 +1,6 @@
-// backend/src/controllers/adminController.ts
 import type { Request, Response } from "express";
 import pool from "../db/pool.js";
 
-/**
- * Enkelt admin-endpoint för produkter.
- */
 export async function getAdminProductsHandler(req: Request, res: Response) {
   try {
     const result = await pool.query(
@@ -31,9 +27,6 @@ export async function getAdminProductsHandler(req: Request, res: Response) {
   }
 }
 
-/**
- * Admin-endpoint för event-logg med join mot products.
- */
 export async function getAdminEventsHandler(req: Request, res: Response) {
   try {
     const result = await pool.query(

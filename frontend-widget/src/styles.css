@@ -1,5 +1,3 @@
-/* Baslayout för widgeten – namespacad med ppfe-widget-* för att inte krocka */
-
 .ppfe-widget-root {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Segoe UI", sans-serif;
@@ -34,15 +32,11 @@
   color: #6b7280;
 }
 
-/* Grid */
-
 .ppfe-widget-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 12px;
 }
-
-/* Card */
 
 .ppfe-widget-card {
   background: #ffffff;

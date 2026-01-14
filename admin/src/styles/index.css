@@ -9,8 +9,6 @@
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-/* base layout */
-
 html, body {
   margin: 0;
   padding: 0;
@@ -28,8 +26,6 @@ html, body {
   grid-template-columns: 220px minmax(0, 1fr);
   min-height: 100vh;
 }
-
-/* sidebar */
 
 .admin-sidebar {
   background: #0f172a;
@@ -68,8 +64,6 @@ html, body {
   background: rgba(37, 99, 235, 0.18);
 }
 
-/* main shell + header */
-
 .admin-shell {
   padding: 16px 18px 24px;
   display: flex;
@@ -106,8 +100,6 @@ html, body {
 .admin-health--error { color: #b91c1c; }
 .admin-health--loading { color: #1d4ed8; }
 
-/* panels */
-
 .admin-main {
   display: flex;
   flex-direction: column;
@@ -141,8 +133,6 @@ html, body {
   color: var(--muted);
 }
 
-/* tables */
-
 .table-wrapper {
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -165,8 +155,6 @@ html, body {
 .table thead {
   background: #f9fafb;
 }
-
-/* recommendations grid */
 
 .rec-debug { display: flex; flex-direction: column; gap: 8px; }
 
@@ -226,8 +214,6 @@ html, body {
   color: var(--muted);
 }
 
-/* states */
-
 .error-text,
 .admin-error {
   color: #b91c1c;
@@ -238,8 +224,6 @@ html, body {
   color: var(--muted);
   font-size: 13px;
 }
-
-/* simple mobile */
 
 @media (max-width: 900px) {
   .admin-root { grid-template-columns: 1fr; }

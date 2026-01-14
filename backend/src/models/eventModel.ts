@@ -1,4 +1,3 @@
-// backend/src/models/eventModel.ts
 import pool from "../db/pool.js";
 
 export type EventType = "view" | "click" | "add_to_cart";
@@ -27,8 +26,6 @@ CREATE TABLE IF NOT EXISTS events (
 );
 `;
 
-// ---- NYTT: input-typ + helper + createEvent ----
-
 export interface CreateEventParams {
   sessionId: string;
   userId?: string | null;
@@ -51,9 +48,6 @@ function mapRowToEvent(row: any): Event {
   };
 }
 
-/**
- * Skapar ett event i databasen och returnerar den skapade Event-objektet.
- */
 export async function createEvent(params: CreateEventParams): Promise<Event> {
   const {
     sessionId,

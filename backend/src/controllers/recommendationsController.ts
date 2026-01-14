@@ -3,21 +3,6 @@ import {
   getRecommendationsWithDebug,
 } from "../services/recommendationEngine.js";
 
-/**
- * /recommendations – används av storefront
- * Returnerar:
- * {
- *   ok: true,
- *   items: [...],
- *   meta: {
- *     sessionId,
- *     currentProductId,
- *     limit,
- *     strategy,
- *     categoriesUsed: string[]
- *   }
- * }
- */
 export async function getRecommendationsHandler(req: Request, res: Response) {
   try {
     const sessionId =
@@ -65,21 +50,6 @@ export async function getRecommendationsHandler(req: Request, res: Response) {
   }
 }
 
-/**
- * /admin/recommendations/preview – används av adminpanelen
- * Returnerar:
- * {
- *   ok: true,
- *   items: [...],
- *   debug: {
- *     strategy,
- *     sessionId,
- *     currentProductId,
- *     limit,
- *     categoriesUsed: string[]
- *   }
- * }
- */
 export async function getRecommendationsPreviewHandler(
   req: Request,
   res: Response

@@ -24,7 +24,6 @@ app.use("/recommendations", recommendationsRoutes);
 app.use("/admin", adminRoutes);
 app.use("/products", productsRoutes);
 
-// Middleware
 app.use(errorMiddleware);
 
 export default app;

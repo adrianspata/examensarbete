@@ -10,7 +10,7 @@ export interface Product {
   created_at: string;
 }
 
-/* ---------- Recommendations ---------- */
+/* Recommendations */
 
 export interface RecommendationsMeta {
   sessionId: string | null;
@@ -58,7 +58,7 @@ export async function listProducts(): Promise<Product[]> {
   return [];
 }
 
-/* ---------- Events ---------- */
+/* Events */
 
 export type EventType = "view" | "click" | "add_to_cart";
 

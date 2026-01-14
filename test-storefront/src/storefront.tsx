@@ -104,7 +104,6 @@ export default function Storefront() {
       },
     };
 
-    // skicka click-event
     void sendEvent(payload);
 
     // uppdatera rekommendationer baserat på produkt klick
@@ -136,7 +135,6 @@ export default function Storefront() {
       },
     };
 
-    // skicka add to cart event
     void sendEvent(payload);
 
     // uppdatera rekommendationer baserat på produkten

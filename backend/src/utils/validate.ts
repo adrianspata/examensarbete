@@ -1,4 +1,3 @@
-// backend/src/utils/validate.ts
 import { badRequest } from "./errors.js";
 import type { EventType } from "../models/eventModel.js";
 

@@ -66,7 +66,6 @@ const App: React.FC = () => {
 
   return (
     <div className="admin-root">
-      {/* SIDEBAR */}
       <aside className="admin-sidebar">
         <div className="admin-sidebar-brand">
           <div>
@@ -122,7 +121,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* MAIN AREA */}
       <div className="admin-shell">
         <header className="admin-header">
           <div>
