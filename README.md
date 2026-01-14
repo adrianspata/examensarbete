@@ -1,64 +1,147 @@
-# Examensarbete – E-commerce Personalised Product Feed Engine
+**Personalised Product Feed Engine (PPFE)**
 
-Detta projekt är ett examensarbete för utbildningen Fullstackutveckling med fokus på E-handel.
+This repository contains a small, end-to-end prototype of a personalised product feed engine for e-commerce.
 
-Projektet implementerar en regelbaserad rekommendationsmotor för mindre e-handelsbutiker.
-Systemet samlar in användarinteraktioner (t.ex. produktvisningar) och returnerar personligt
-anpassade produktrekommendationer via ett REST-API.
+The aim is to show, in a realistic but compact way, how an online retailer could:
 
-## Syfte
+expose a product catalogue via an API
 
-- Visa förståelse för backend-arkitektur (Node.js, Express, TypeScript).
-- Visa förståelse för databaser (PostgreSQL) och datamodellering.
-- Bygga en minimal frontend-integration (widget + test-storefront).
-- Ge en enkel adminvy för inspektion av events och rekommendationer.
-- Arbeta strukturerat med Git, tydlig commit-historik och dokumenterad arbetsprocess.
+collect user interaction events (views, clicks, add_to_cart)
 
-## Arkitektur
+generate simple but explainable product recommendations
 
-- **Backend** (backend/):  
-  Node.js + Express + TypeScript.  
-  Exponerar:
-  - endpoint för insamling av events
-  - endpoint för hämtning av rekommendationer
-  - intern, regelbaserad rekommendationsmotor
+inspect and debug the engine via an admin dashboard
 
-- **Frontend-widget** (frontend-widget/):  
-  Minimal JS/TS-komponent som kan bäddas in i en valfri e-handelsfrontend.
-  Hämtar rekommendationer via API och renderar dem.
+The focus is on clarity and transparency. The recommendation logic is deliberately rule-based so it can be read, understood, and discussed.
 
-- **Admin** (admin/):  
-  React + Vite.  
-  Visar eventloggar och rekommendationsoutput för debugging.
+**Repository structure**
+.
+├─ backend/             # Node + Express + PostgreSQL API
+├─ admin/               # Admin dashboard UI (React + Vite)
+├─ test-storefront/     # Demo storefront UI (React + Vite)
+├─ frontend-widget/     # Embeddable recommendations widget (vanilla TS)
+├─ INSTALLATION.md      # Step-by-step install & run guide
+└─ package.json         # Root workspace config (pnpm monorepo)
 
-- **Test-storefront** (test-storefront/):  
-  React + Vite.  
-  Simulerar en enkel e-handelsmiljö:
-  - visar produkter
-  - skickar events till backend
-  - visar rekommenderade produkter.
+High-level architecture
 
-## Teknikstack
+The system is split into four parts that talk to each other over HTTP:
 
-- Node.js + Express + TypeScript
-- PostgreSQL (eller annan liten SQL-databas lokalt)
-- React + Vite (admin och test-storefront)
-- pnpm workspaces (backend, admin, test-storefront, frontend-widget)
+**1. Backend API (Node.js / Express / PostgreSQL)**
 
-## Icke-mål (medvetet uteslutet)
+Exposes a REST API:
 
-- Ingen betalningslösning
-- Ingen varukorg
-- Ingen avancerad användarhantering
-- Ingen ML-baserad rekommendationsmotor
-- Ingen deploymentpipeline
+GET /products – product catalogue
 
-## Kör projektet lokalt (översikt)
+POST /events – collect user interactions (view / click / add_to_cart)
 
-Detaljerad installation och kommandon dokumenteras i INSTALLATION.md, men i korthet:
+GET /recommendations – recommended products for a given session
 
-1. Installera dependencies med pnpm install.
-2. Sätt upp databas (PostgreSQL) och miljövariabler.
-3. Kör migrering och seed-skript.
-4. Starta backend, admin och test-storefront.
-5. Öppna admin och test-storefront i webbläsaren, generera events och inspektera rekommendationerna.
+GET /admin/products, GET /admin/events, GET /admin/recommendations/preview – admin/debug endpoints
+
+GET /health – simple health check used by the admin UI
+
+Stores state in PostgreSQL:
+
+products – demo fashion products (id, sku, name, category, price, image_url, …)
+
+events – interaction log (session_id, product_id, event_type, created_at, …)
+
+Recommendation logic lives in
+backend/src/services/recommendationEngine.ts
+and combines:
+
+recent category interactions for a session
+
+simple “trending” signals based on event counts
+into a ranked product list, plus debug metadata.
+
+**2. Admin panel (React)**
+
+Standalone React app under admin/, talking to the backend over HTTP.
+
+Main views:
+
+Products – catalogue from /admin/products
+
+Events – recent events joined with product info from /admin/events
+
+Recommendations – preview UI using /admin/recommendations/preview, showing both recommended items and debug info (strategy, sessionId, currentProductId, categories used, limit)
+
+Intended as a small “control room” for understanding and explaining engine behaviour, not a production CMS.
+
+**3. Test storefront (React)**
+
+Demo storefront under test-storefront/ that simulates a small fashion shop.
+
+Behaviour:
+
+loads products from GET /products
+
+logs user interactions to POST /events
+
+fetches recommendations from GET /recommendations
+
+displays a “Recommended for you” section
+
+Purpose: provide a clickable surface that generates real events, which can then be inspected via the admin dashboard.
+
+**4. Frontend widget (vanilla TypeScript)**
+
+Lives in frontend-widget/.
+
+Compiles to a small IIFE bundle:
+
+frontend-widget/dist/ppfe-widget.iife.js
+
+frontend-widget/dist/style.css
+
+Can be embedded in any HTML page via <script> and initialised with:
+
+backendUrl
+
+sessionId
+
+limit
+
+Shows how the engine can be consumed by an external storefront or CMS that only needs to include a JS file.
+
+What this prototype demonstrates
+
+A clean separation between:
+
+data & storage (PostgreSQL)
+
+event collection (POST /events)
+
+recommendation logic (rule-based engine)
+
+inspection tools (admin dashboard)
+
+A realistic API surface that a storefront or widget can integrate with.
+
+An explainable recommendation pipeline that can be discussed in terms of:
+
+signals used (event types, categories, recency)
+
+fallback strategies (trending when data is sparse)
+
+limitations and future improvement paths.
+
+This is intentionally not a production system: there is no authentication, multi-tenant setup or ML-based ranking. Those omissions are deliberate to keep the system small, readable, and suitable for a thesis project.
+
+**Installation & running the project**
+
+For step-by-step instructions on how to:
+
+set up the environment
+
+configure PostgreSQL
+
+run migrations and seed demo data
+
+start backend, admin, and test storefront
+
+build and preview the widget
+
+…see INSTALLATION.md in the repository root.
