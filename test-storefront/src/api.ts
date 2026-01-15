@@ -41,21 +41,19 @@ export async function listProducts(): Promise<Product[]> {
   const res = await fetch(`${BASE_URL}/products`);
   const raw = await handleResponse<unknown>(res);
 
-  // Normalisera svaret så att vi ALLTID returnerar en array
-  if (Array.isArray(raw)) {
-    return raw as Product[];
-  }
+  const arr = Array.isArray(raw)
+    ? raw
+    : raw && typeof raw === "object" && Array.isArray((raw as any).items)
+    ? (raw as any).items
+    : raw && typeof raw === "object" && Array.isArray((raw as any).products)
+    ? (raw as any).products
+    : [];
 
-  if (raw && typeof raw === "object" && Array.isArray((raw as any).items)) {
-    return (raw as any).items as Product[];
-  }
-
-  if (raw && typeof raw === "object" && Array.isArray((raw as any).products)) {
-    return (raw as any).products as Product[];
-  }
-
-  console.warn("Okänt format på /products-responsen:", raw);
-  return [];
+  return (arr as any[]).map((p) => ({
+    ...p,
+    // viktigt: storefront renderar product.image_url
+    image_url: (p as any).image_url ?? (p as any).imageUrl ?? null,
+  })) as Product[];
 }
 
 /* Events */
