@@ -12,9 +12,11 @@ export const PPFE = {
 declare global {
   interface Window {
     PPFE?: typeof PPFE;
+    PPFEWidget?: typeof PPFE; // alias for older docs / demos
   }
 }
 
 if (typeof window !== "undefined") {
   window.PPFE = PPFE;
+  window.PPFEWidget = PPFE;
 }

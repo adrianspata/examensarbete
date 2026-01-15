@@ -1,8 +1,8 @@
 export interface WidgetConfig {
-  apiBaseUrl: string;          // t.ex. "http://localhost:4000"
-  containerId: string;         // id på <div> där widgeten ska renderas
-  sessionId: string;           // sessions-id från butiken
-  limit?: number;              // max antal rekommendationer
+  apiBaseUrl: string; // e.g. "http://localhost:4000"
+  containerId: string;
+  sessionId: string;
+  limit?: number;
 }
 
 export interface Product {
@@ -14,8 +14,10 @@ export interface Product {
   imageUrl: string | null;
 }
 
+type AnyProduct = Product & { image_url?: string | null };
+
 interface RecommendationsResponse {
-  items: Product[];
+  items: AnyProduct[];
   strategy?: string;
   reason?: string;
 }
@@ -58,8 +60,8 @@ async function fetchRecommendations(
 async function fetchFallbackProducts(
   baseUrl: string,
   limit?: number
-): Promise<Product[]> {
-  const products = await fetchJSON<Product[]>(`${baseUrl}/products`);
+): Promise<AnyProduct[]> {
+  const products = await fetchJSON<AnyProduct[]>(`${baseUrl}/products`);
   if (limit) return products.slice(0, limit);
   return products;
 }
@@ -68,7 +70,7 @@ async function sendEvent(
   baseUrl: string,
   sessionId: string,
   productId: number,
-  eventType: "product_click" | "product_view"
+  eventType: "click" | "view" | "add_to_cart"
 ): Promise<void> {
   try {
     await fetch(`${baseUrl}/events`, {
@@ -78,27 +80,36 @@ async function sendEvent(
         sessionId,
         productId,
         eventType,
+        metadata: { source: "widget" },
       }),
     });
   } catch {
-    // tyst fail – widgeten ska aldrig krascha butiken
+    // silent fail
   }
+}
+
+function resolveImageSrc(apiBaseUrl: string, url: string): string {
+  // absolute already
+  if (/^https?:\/\//i.test(url)) return url;
+
+  // if it's a relative path like "/images/..."
+  if (url.startsWith("/")) return `${apiBaseUrl}${url}`;
+
+  // fallback: treat as relative to apiBaseUrl
+  return `${apiBaseUrl}/${url}`;
 }
 
 function renderProducts(
   container: HTMLElement,
-  products: Product[],
+  products: AnyProduct[],
   opts: { baseUrl: string; sessionId: string }
 ): void {
   container.innerHTML = "";
 
   if (!products.length) {
-    const empty = el(
-      "div",
-      "ppfe-widget-empty",
-      "Inga rekommendationer tillgängliga just nu."
+    container.appendChild(
+      el("div", "ppfe-widget-empty", "Inga rekommendationer tillgängliga just nu.")
     );
-    container.appendChild(empty);
     return;
   }
 
@@ -108,50 +119,43 @@ function renderProducts(
     const card = el("article", "ppfe-widget-card");
 
     const imgArea = el("div", "ppfe-widget-image");
-    if (product.imageUrl) {
+
+    const rawImage =
+      product.imageUrl ?? (product.image_url ?? null);
+
+    if (rawImage) {
       const img = el("img", "ppfe-widget-image-tag") as HTMLImageElement;
-      img.src = product.imageUrl;
+      img.src = resolveImageSrc(opts.baseUrl, rawImage);
       img.alt = product.name;
+      img.loading = "lazy";
       imgArea.appendChild(img);
     } else {
-      const fallback = el(
-        "div",
-        "ppfe-widget-image-fallback",
-        product.name.charAt(0).toUpperCase()
+      imgArea.appendChild(
+        el("div", "ppfe-widget-image-fallback", product.name.charAt(0).toUpperCase())
       );
-      imgArea.appendChild(fallback);
     }
 
     const body = el("div", "ppfe-widget-body");
-    const sku = el("div", "ppfe-widget-sku", product.sku);
-    const name = el("div", "ppfe-widget-name", product.name);
+    body.appendChild(el("div", "ppfe-widget-sku", product.sku));
+    body.appendChild(el("div", "ppfe-widget-name", product.name));
+
     const meta = el("div", "ppfe-widget-meta");
-
     if (product.category) {
-      meta.appendChild(
-        el("span", "ppfe-widget-pill", product.category.toLowerCase())
-      );
+      meta.appendChild(el("span", "ppfe-widget-pill", product.category.toLowerCase()));
     }
-
     if (product.price != null) {
-      meta.appendChild(
-        el("span", "ppfe-widget-price", `${product.price.toFixed(0)} kr`)
-      );
+      meta.appendChild(el("span", "ppfe-widget-price", `${product.price.toFixed(0)} kr`));
     }
+    body.appendChild(meta);
 
     const btn = el("button", "ppfe-widget-button", "Visa produkt");
     btn.addEventListener("click", () => {
-      sendEvent(opts.baseUrl, opts.sessionId, product.id, "product_click");
-      // Här skulle en riktig butik t.ex. navigera till PDP
+      sendEvent(opts.baseUrl, opts.sessionId, product.id, "click");
     });
-
-    body.appendChild(sku);
-    body.appendChild(name);
-    body.appendChild(meta);
-    body.appendChild(btn);
 
     card.appendChild(imgArea);
     card.appendChild(body);
+    card.appendChild(btn);
     list.appendChild(card);
   });
 
@@ -163,9 +167,7 @@ export async function initWidget(config: WidgetConfig): Promise<void> {
 
   const container = document.getElementById(containerId);
   if (!container) {
-    console.warn(
-      `[PPFE] Hittar ingen container med id="${containerId}". Avbryter render.`
-    );
+    console.warn(`[PPFE] Hittar ingen container med id="${containerId}". Avbryter render.`);
     return;
   }
 
@@ -175,11 +177,7 @@ export async function initWidget(config: WidgetConfig): Promise<void> {
   const header = el("div", "ppfe-widget-header");
   header.appendChild(el("div", "ppfe-widget-title", "Rekommenderat för dig"));
   header.appendChild(
-    el(
-      "div",
-      "ppfe-widget-subtitle",
-      "Byggt med ett enkelt regelbaserat rekommendationsflöde."
-    )
+    el("div", "ppfe-widget-subtitle")
   );
 
   const content = el("div", "ppfe-widget-content");
@@ -190,7 +188,7 @@ export async function initWidget(config: WidgetConfig): Promise<void> {
   container.appendChild(state);
 
   try {
-    let recs: Product[] = [];
+    let recs: AnyProduct[] = [];
 
     try {
       const res = await fetchRecommendations(apiBaseUrl, sessionId, limit);
@@ -203,7 +201,6 @@ export async function initWidget(config: WidgetConfig): Promise<void> {
     state.textContent = "";
   } catch (err) {
     console.error("[PPFE] Misslyckades ladda widget", err);
-    state.textContent =
-      "Kunde inte hämta rekommendationer just nu. Försök igen senare.";
+    state.textContent = "Kunde inte hämta rekommendationer just nu. Försök igen senare.";
   }
 }

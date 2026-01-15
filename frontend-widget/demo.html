@@ -1,11 +1,14 @@
 <!DOCTYPE html>
-<html lang="sv">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PPFE Widget Demo</title>
 
+    <!-- Widget styles (built output) -->
     <link rel="stylesheet" href="./dist/style.css" />
   </head>
+
   <body>
     <main
       style="
@@ -15,26 +18,76 @@
           'Segoe UI', sans-serif;
       "
     >
-      <h1 style="font-size: 24px; margin-bottom: 8px">PPFE – Widgetdemo</h1>
-      <p style="font-size: 14px; color: #4b5563; margin-bottom: 24px">
-        Den här sidan simulerar en liten e-handelssida som laddar in din
-        rekommendations-widget.
-      </p>
+      <h1 style="font-size: 24px; margin-bottom: 8px">Widget demo</h1>
 
       <section>
         <div id="ppfe-recos"></div>
       </section>
+
+      <div
+        id="ppfe-demo-status"
+        style="margin-top: 16px; font-size: 12px; color: #6b7280"
+      ></div>
     </main>
 
+    <!-- Widget bundle (built output) -->
     <script src="./dist/ppfe-widget.iife.js"></script>
+
     <script>
-      window.PPFE &&
-        window.PPFE.init({
-          apiBaseUrl: "http://localhost:4000",
-          containerId: "ppfe-recos",
-          sessionId: "demo-session-123",
-          limit: 4,
-        });
+      (function () {
+        var statusEl = document.getElementById("ppfe-demo-status");
+
+        function setStatus(msg) {
+          if (statusEl) statusEl.textContent = msg;
+        }
+
+        // 1) Verify global is present
+        if (!window.PPFE || typeof window.PPFE.init !== "function") {
+          console.error(
+            "[PPFE demo] window.PPFE.init is missing. Bundle may not be loaded."
+          );
+          setStatus(
+            "Widget bundle not loaded (window.PPFE.init missing). Check dist path / build."
+          );
+          return;
+        }
+
+        // 2) (Optional) verify backend health quickly, then init widget
+        var apiBaseUrl = "http://localhost:4000";
+        var sessionId = "demo-session-123";
+
+        fetch(apiBaseUrl + "/health")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            setStatus("Backend reachable. Initialising widget…");
+            return window.PPFE.init({
+              apiBaseUrl: apiBaseUrl,
+              containerId: "ppfe-recos",
+              sessionId: sessionId,
+              limit: 4,
+            });
+          })
+          .then(function () {
+            setStatus("Widget initialised (sessionId: " + sessionId + ").");
+          })
+          .catch(function (err) {
+            console.error("[PPFE demo] Backend health check failed:", err);
+            setStatus(
+              "Backend not reachable on " +
+                apiBaseUrl +
+                " (start backend on :4000)."
+            );
+            // Still try init – widget itself has fallback logic
+            window.PPFE.init({
+              apiBaseUrl: apiBaseUrl,
+              containerId: "ppfe-recos",
+              sessionId: sessionId,
+              limit: 4,
+            });
+          });
+      })();
     </script>
   </body>
 </html>
