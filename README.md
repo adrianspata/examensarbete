@@ -14,17 +14,6 @@ inspect and debug the engine via an admin dashboard
 
 The focus is on clarity and transparency. The recommendation logic is deliberately rule-based so it can be read, understood, and discussed.
 
-**Repository structure**
-.
-├─ backend/             # Node + Express + PostgreSQL API
-├─ admin/               # Admin dashboard UI (React + Vite)
-├─ test-storefront/     # Demo storefront UI (React + Vite)
-├─ frontend-widget/     # Embeddable recommendations widget (vanilla TS)
-├─ INSTALLATION.md      # Step-by-step install & run guide
-└─ package.json         # Root workspace config (pnpm monorepo)
-
-High-level architecture
-
 The system is split into four parts that talk to each other over HTTP:
 
 **1. Backend API (Node.js / Express / PostgreSQL)**
